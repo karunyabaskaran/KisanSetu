@@ -9,9 +9,38 @@ let activeBuyerTab = "marketplace";
 
 document.addEventListener("DOMContentLoaded", () => {
     initLanguageSelector();
+    initOfflineMonitor();
     initEventListeners();
     checkExistingSession();
 });
+
+function initOfflineMonitor() {
+    const banner = document.getElementById("offlineBanner");
+    const bannerText = document.getElementById("offlineBannerText");
+    if (!banner) return;
+
+    function updateNetworkStatus() {
+        if (!navigator.onLine) {
+            banner.classList.add("visible");
+            banner.classList.remove("online-recovered");
+            if (bannerText) bannerText.innerText = "Offline Mode Active: Browsing preloaded crops, hubs, and data without internet.";
+        } else {
+            if (banner.classList.contains("visible")) {
+                banner.classList.add("online-recovered");
+                if (bannerText) bannerText.innerText = "🟢 Back Online: Connected & synchronized with cloud servers.";
+                setTimeout(() => {
+                    banner.classList.remove("visible", "online-recovered");
+                }, 3500);
+            }
+        }
+    }
+
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
+    if (!navigator.onLine) {
+        updateNetworkStatus();
+    }
+}
 
 function initLanguageSelector() {
     const selector = document.getElementById("languageSelector");

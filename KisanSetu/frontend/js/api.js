@@ -22,15 +22,52 @@ const api = {
             options.headers["Content-Type"] = "application/json";
         }
 
+        const isGet = !options.method || options.method.toUpperCase() === "GET";
+        const cacheKey = "ks_cache_" + endpoint;
+
+        // If offline and request is a mutation, inform the user
+        if (!navigator.onLine && !isGet) {
+            alert("📡 You are currently offline. Please reconnect to the internet to perform this action.");
+            throw new Error("Offline: network connection unavailable.");
+        }
+
         try {
             const res = await fetch(`${API_BASE}${endpoint}`, options);
             const data = await res.json();
             if (!res.ok) {
                 throw new Error(data.message || `HTTP ${res.status}`);
             }
+
+            // Save successful GET response to local cache
+            if (isGet) {
+                try {
+                    localStorage.setItem(cacheKey, JSON.stringify({
+                        timestamp: Date.now(),
+                        data: data
+                    }));
+                } catch (_e) {
+                    // Ignore storage quota limits
+                }
+            }
+
             return data;
         } catch (err) {
-            console.error(`[API Error] ${endpoint}:`, err);
+            console.warn(`[API Network Error] ${endpoint}:`, err);
+
+            // If GET request fails (e.g. offline), retrieve from preloaded local storage cache
+            if (isGet) {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    try {
+                        const parsed = JSON.parse(cached);
+                        console.info(`[Offline Mode] Loaded ${endpoint} from preloaded cache.`);
+                        const result = parsed.data || parsed;
+                        result._from_offline_cache = true;
+                        return result;
+                    } catch (_e) {}
+                }
+            }
+
             throw err;
         }
     },

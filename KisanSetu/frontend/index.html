@@ -8,15 +8,41 @@
     <meta name="description"
         content="KisanSetu connects farmers and FPOs directly with retail consumers and bulk buyers with tiered slab pricing, GPS mapping, 22 regional Indian languages, and logistics support.">
 
+    <!-- PWA & Mobile Web Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#16a34a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="KisanSetu">
+    <link rel="apple-touch-icon" href="/images/logo.png">
+
     <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
     <!-- Application Stylesheet -->
     <link rel="stylesheet" href="css/style.css">
+
+    <!-- Service Worker Registration for PWA / Android APK -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('KisanSetu PWA Service Worker active:', reg.scope))
+                    .catch(err => console.log('Service Worker registration note:', err));
+            });
+        }
+    </script>
 </head>
 
 <body>
+
+    <!-- Offline Status Indicator Banner -->
+    <div id="offlineBanner" class="offline-banner">
+        <span class="offline-icon">📡</span>
+        <span id="offlineBannerText">Offline Mode Active: Browsing preloaded crops, hubs, and data without internet.</span>
+    </div>
 
     <!-- 1. Top Announcement & Language Selector Bar -->
     <div class="top-announcement-bar">

@@ -36,6 +36,14 @@ app.register_blueprint(admin_bp, url_prefix="/api/admin")
 def index():
     return send_from_directory("frontend", "index.html")
 
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory("frontend", "manifest.json", mimetype="application/manifest+json")
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory("frontend", "sw.js", mimetype="application/javascript")
+
 @app.route("/static/uploads/<path:filename>")
 def serve_uploads(filename):
     uploads_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
