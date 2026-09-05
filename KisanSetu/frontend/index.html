@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KisanSetu | Bridging Farmers, Markets & Opportunities</title>
+    <meta name="description"
+        content="KisanSetu connects farmers and FPOs directly with retail consumers and bulk buyers with tiered slab pricing, GPS mapping, 22 regional Indian languages, and logistics support.">
+
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <!-- 1. Top Announcement & Language Selector Bar -->
+    <div class="top-announcement-bar">
+        <div class="top-bar-inner">
+            <div class="announcement-left">
+                <span class="badge-tag" data-i18n="gov_aligned">GOVERNMENT OF INDIA ALIGNED</span>
+                <span data-i18n="eliminated_brokerage">0% Intermediary Cuts • Direct Farmer Payout</span>
+            </div>
+            <div class="lang-selector-wrap">
+                <span data-i18n="lang_label">🌐 Language / भाषा:</span>
+                <select id="languageSelector" class="lang-select" aria-label="Select Regional Language">
+                    <!-- Populated dynamically with 22 constitutional languages -->
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Main Navigation Header with Attached Logo -->
+    <header class="main-header">
+        <div class="header-container">
+            <div class="brand-wrapper" onclick="window.location.reload()"
+                title="KisanSetu - Bridging Farmers, Markets & Opportunities">
+                <img src="images/logo.png" alt="KisanSetu - Bridging Farmers, Markets & Opportunities"
+                    class="site-logo-img">
+            </div>
+
+            <!-- Active Portal Indicator (Shown only when a role portal is active) -->
+            <div class="active-portal-badge" id="activePortalBadge" style="display: none;">
+                <span class="portal-badge-icon" id="activePortalIcon">🌾</span>
+                <span class="portal-badge-text" id="activePortalTitle">Farmer / FPO Portal</span>
+            </div>
+
+            <div class="header-auth-section" id="headerAuthBox">
+                <!-- Populated dynamically: Sign In / Register OR Active Profile with Logout -->
+            </div>
+        </div>
+    </header>
+
+    <!-- ====================================================================
+         SECTION 0: PORTAL GATEWAY / ROLE SELECTION (Shown when logged out)
+         ==================================================================== -->
+    <main id="section_portal_select" class="role-section active">
+        <div class="portal-gateway-hero">
+            <div class="gateway-hero-badge" data-i18n="portal_hero_badge">🇮🇳 National Direct Agri-Commerce Platform</div>
+            <h1 class="gateway-hero-title" data-i18n="portal_hero_title">Select Your Dedicated Portal</h1>
+            <p class="gateway-hero-subtitle" data-i18n="portal_hero_subtitle">
+                A simple and transparent digital bridge connecting farmers, buyers, logistics partners, and government support.
+            </p>
+            <div class="gateway-feature-pills">
+                <span class="feat-pill">🌱 0% Middlemen Fees</span>
+                <span class="feat-pill">⚖️ Fair Price Guidance</span>
+                <span class="feat-pill">🚚 Direct Hub Logistics</span>
+                <span class="feat-pill">🛡️ 7-Day Inspection Protection</span>
+            </div>
+        </div>
+
+        <div class="portal-cards-grid">
+            <!-- 1. Farmer / FPO Card -->
+            <div class="portal-card portal-card-farmer">
+                <div class="portal-card-header">
+                    <div class="portal-card-icon">👨‍🌾</div>
+                    <div>
+                        <span class="portal-tag tag-farmer" data-i18n="portal_tag_farmer">Producers & Cultivators</span>
+                        <h3 class="portal-card-title" data-i18n="role_farmer">Farmer / FPO</h3>
+                    </div>
+                </div>
+                <p class="portal-card-desc" data-i18n="portal_desc_farmer">
+                    Sell your fresh harvest directly at fair prices, receive orders from nearby buyers, and get quick help if you have questions.
+                </p>
+                <div class="portal-card-actions">
+                    <button class="btn btn-primary w-100" onclick="showLoginModal('farmer')" data-i18n="btn_signin_farmer">
+                        🔑 Sign In as Farmer
+                    </button>
+                    <button class="btn btn-outline-primary w-100" onclick="showRegisterModal('farmer')" data-i18n="btn_register_farmer">
+                        📝 Register as Farmer
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Buyer Card -->
+            <div class="portal-card portal-card-buyer">
+                <div class="portal-card-header">
+                    <div class="portal-card-icon">🛒</div>
+                    <div>
+                        <span class="portal-tag tag-buyer" data-i18n="portal_tag_buyer">Retail & Bulk Procurement</span>
+                        <h3 class="portal-card-title" data-i18n="role_buyer">Buyer / Consumer</h3>
+                    </div>
+                </div>
+                <p class="portal-card-desc" data-i18n="portal_desc_buyer">
+                    Buy fresh harvest directly from farmers with transparent quantity discounts, honest prices, and live delivery tracking.
+                </p>
+                <div class="portal-card-actions">
+                    <button class="btn btn-buyer w-100" onclick="showLoginModal('buyer')" data-i18n="btn_signin_buyer">
+                        🔑 Sign In as Buyer
+                    </button>
+                    <button class="btn btn-outline-buyer w-100" onclick="showRegisterModal('buyer')" data-i18n="btn_register_buyer">
+                        📝 Register as Buyer
+                    </button>
+                </div>
+            </div>
+
+            <!-- 3. Logistics Card -->
+            <div class="portal-card portal-card-logistics">
+                <div class="portal-card-header">
+                    <div class="portal-card-icon">🚛</div>
+                    <div>
+                        <span class="portal-tag tag-logistics" data-i18n="portal_tag_logistics">Fleet & Cold Chain</span>
+                        <h3 class="portal-card-title" data-i18n="role_logistics">Logistics Partner</h3>
+                    </div>
+                </div>
+                <p class="portal-card-desc" data-i18n="portal_desc_logistics">
+                    Smart delivery routes, real-time road map navigation, and safe order package check & confirmation.
+                </p>
+                <div class="portal-card-actions">
+                    <button class="btn btn-logistics w-100" onclick="showLoginModal('logistics')" data-i18n="btn_signin_logistics">
+                        🔑 Sign In to Logistics
+                    </button>
+                    <button class="btn btn-outline-logistics w-100" onclick="showRegisterModal('logistics')" data-i18n="btn_register_logistics">
+                        📝 Register Logistics Fleet
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. Admin Card -->
+            <div class="portal-card portal-card-admin">
+                <div class="portal-card-header">
+                    <div class="portal-card-icon">🏛️</div>
+                    <div>
+                        <span class="portal-tag tag-admin" data-i18n="portal_tag_admin">Government Oversight</span>
+                        <h3 class="portal-card-title" data-i18n="role_admin">Ministry (Admin)</h3>
+                    </div>
+                </div>
+                <p class="portal-card-desc" data-i18n="portal_desc_admin">
+                    Check prices across states, view state/district farmers and activities, and solve member problems fairly.
+                </p>
+                <div class="portal-card-actions">
+                    <button class="btn btn-admin w-100" onclick="showLoginModal('admin')" data-i18n="btn_signin_admin">
+                        🔑 Ministry Official Sign In
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ====================================================================
+         SECTION 1: FARMER / FPO PORTAL
+         ==================================================================== -->
+    <main id="section_farmer" class="role-section">
+        <!-- Farmer Sub-Navigation -->
+        <div class="portal-subnav">
+            <button class="subnav-btn farmer-tab-btn active" data-tab="products" data-i18n="nav_my_products">My Products
+                (Slab Pricing)</button>
+            <button class="subnav-btn farmer-tab-btn" data-tab="marketplace" data-i18n="nav_marketplace">Pan-India
+                Marketplace</button>
+            <button class="subnav-btn farmer-tab-btn" data-tab="orders" data-i18n="nav_orders">Consumer Orders</button>
+            <button class="subnav-btn farmer-tab-btn" data-tab="support" data-i18n="nav_support">Support & Ministry
+                Grievances</button>
+            <button class="subnav-btn farmer-tab-btn" data-tab="profile" data-i18n="nav_profile">Farm Profile</button>
+        </div>
+
+        <!-- 1.1 My Products Tab -->
+        <div class="farmer-tab-panel active" data-tab-panel="products">
+            <!-- Demand Prediction Applied to Farmer Page -->
+            <div class="farmer-ai-demand-card">
+                <div class="farmer-ai-header">
+                    <div>
+                        <h3 data-i18n="farmer_ai_title">🤖 AI Crop Demand Forecast & Fair Price Advisor</h3>
+                        <p class="small text-muted mb-0" data-i18n="farmer_ai_subtitle">Plan your harvest and pricing
+                            based on real-time market demand and government MSP baselines.</p>
+                    </div>
+                    <div class="farmer-ai-selector-wrap">
+                        <label class="small font-weight-bold mb-0" data-i18n="lbl_select_crop">Select Crop:</label>
+                        <select id="farmerAICropSelect" class="form-control"
+                            style="width: auto; display: inline-block;">
+                            <option value="Ponni Raw Rice (Organic)" data-i18n="crop_ponni_rice">Ponni Raw Rice (Organic)</option>
+                            <option value="1121 Traditional Basmati Rice" data-i18n="crop_basmati_rice">1121 Traditional Basmati Rice</option>
+                            <option value="Nashik Red Onions" data-i18n="crop_nashik_onion">Nashik Red Onions</option>
+                            <option value="Sharbati Golden Wheat" data-i18n="crop_sharbati_wheat">Sharbati Golden Wheat</option>
+                            <option value="Country Small Onions (Shallots)" data-i18n="crop_small_onions">Country Small Onions (Shallots)</option>
+                            <option value="Thompson Seedless Grapes" data-i18n="crop_grapes">Thompson Seedless Grapes</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="toggleFarmerAICard()" id="btnToggleFarmerAI">
+                            Hide AI Advisor ▲
+                        </button>
+                    </div>
+                </div>
+
+                <div class="farmer-ai-stats-grid" id="farmerAIStatsGrid">
+                    <!-- Loaded dynamically via FarmerController.loadFarmerAIForecast() -->
+                </div>
+
+                <div class="farmer-ai-actions-strip">
+                    <div class="farmer-ai-insight-text" id="farmerAIInsightText">
+                        <!-- AI Insights -->
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary"
+                        onclick="FarmerController.applyAIPricesToSlabs()" data-i18n="btn_apply_ai_slabs">
+                        ✨ Apply AI Recommended Slabs to Form
+                    </button>
+                </div>
+            </div>
+
+            <div class="farmer-dashboard-layout">
+                <!-- Add Product Form with Slab Pricing Builder -->
+                <div class="content-card">
+                    <div class="card-title-row">
+                        <h3 data-i18n="btn_add_product">+ Add New Produce</h3>
+                        <span class="badge-tag" data-i18n="direct_listing">Direct Listing</span>
+                    </div>
+                    <form id="addProductForm">
+                        <div class="form-group">
+                            <label data-i18n="lbl_crop_name">Product / Crop Name *</label>
+                            <input type="text" id="prod_name" class="form-control" data-i18n-placeholder="ph_crop_name"
+                                placeholder="e.g. Ponni Raw Rice, Nashik Red Onion" required>
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label data-i18n="lbl_category">Category</label>
+                                <select id="prod_category" class="form-control">
+                                    <option value="Grains" data-i18n="cat_grains">Grains (Cereals)</option>
+                                    <option value="Vegetables" data-i18n="cat_vegetables">Vegetables</option>
+                                    <option value="Fruits" data-i18n="cat_fruits">Fruits</option>
+                                    <option value="Pulses" data-i18n="cat_pulses">Pulses / Lentils</option>
+                                    <option value="Spices" data-i18n="cat_spices">Spices & Herbs</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_crop_variety">Crop Variety *</label>
+                                <input type="text" id="prod_variety" class="form-control"
+                                    data-i18n-placeholder="ph_crop_variety"
+                                    placeholder="e.g. Thanjavur Ponni, Pusa 1121" required>
+                            </div>
+                        </div>
+                        <div class="form-row-2">
+                            <div class="form-group">
+                                <label data-i18n="lbl_grade">Quality Grade</label>
+                                <select id="prod_grade" class="form-control">
+                                    <option value="Grade A" data-i18n="opt_grade_a">Grade A (Premium)</option>
+                                    <option value="Export" data-i18n="opt_grade_export">Export Quality</option>
+                                    <option value="Grade B" data-i18n="opt_grade_b">Grade B (Standard)</option>
+                                    <option value="Grade C" data-i18n="opt_grade_c">Grade C (Processing)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label data-i18n="lbl_qty_available">Available Quantity (kg) *</label>
+                                <input type="number" step="1" id="prod_qty" class="form-control"
+                                    data-i18n-placeholder="ph_qty" placeholder="e.g. 500" required>
+                            </div>
+                        </div>
+
+                        <!-- SLAB PRICING BUILDER -->
+                        <div class="slab-pricing-section">
+                            <div class="slab-header">
+                                <div>
+                                    <h5 data-i18n="slab_pricing_title">Slab / Tier Pricing</h5>
+                                    <p class="small text-muted" data-i18n="slab_desc">Configure volume discounts (e.g.
+                                        &lt;10kg is ₹45, &gt;10kg is ₹38, &gt;50kg is ₹32).</p>
+                                </div>
+                                <button type="button" class="btn btn-xs btn-outline-primary"
+                                    onclick="FarmerController.addSlabRow()" data-i18n="btn_add_tier">+ Add Tier</button>
+                            </div>
+                            <div id="slabListContainer">
+                                <!-- Dynamic rows rendered by FarmerController -->
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label data-i18n="lbl_image_url">Product Image URL (Optional)</label>
+                            <input type="url" id="prod_image" class="form-control" data-i18n-placeholder="ph_image_url"
+                                placeholder="Paste image link or leave blank for category default">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_crop_desc">Harvest & Quality Description</label>
+                            <textarea id="prod_desc" class="form-control" rows="2" data-i18n-placeholder="ph_crop_desc"
+                                placeholder="Describe soil, cultivation method, moisture content, etc."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_publish_produce">Publish
+                            Produce to National Marketplace</button>
+                    </form>
+                </div>
+
+                <!-- Grid of Listed Products -->
+                <div>
+                    <div class="card-title-row">
+                        <h3 data-i18n="title_my_listed_produce">My Listed Produce</h3>
+                        <span class="small text-muted" data-i18n="sub_farm_gate_inventory">Direct Farm Gate
+                            Inventory</span>
+                    </div>
+                    <div id="farmerProductsGrid" class="products-grid">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1.2 Pan-India Marketplace Browse -->
+        <div class="farmer-tab-panel" data-tab-panel="marketplace">
+            <div class="content-card">
+                <div class="card-title-row">
+                    <h3 data-i18n="title_pan_india_marketplace">Pan-India Agricultural Marketplace</h3>
+                    <span class="small text-muted" data-i18n="sub_pan_india_marketplace">View produce and benchmarks
+                        from other farmers across Indian states</span>
+                </div>
+                <div id="farmerMarketplaceBrowseGrid" class="products-grid">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 1.3 Orders Tab with 7-Day Yellow Timer to Green / Red Return -->
+        <div class="farmer-tab-panel" data-tab-panel="orders">
+            <div class="content-card">
+                <div class="card-title-row">
+                    <h3 data-i18n="title_consumer_orders">Orders Placed by Consumers & Bulk Buyers</h3>
+                    <div class="status-legend small">
+                        <span class="badge-delivered-yellow mr-2"><span class="timer-icon">⏳</span> <span
+                                data-i18n="legend_yellow">Yellow = 7-Day Inspection Window</span></span>
+                        <span class="badge-delivered-green mr-2"><span class="check-icon">✅</span> <span
+                                data-i18n="legend_green">Green = Verified (7d Passed)</span></span>
+                        <span class="badge-returned-red"><span class="return-icon">⚠️</span> <span
+                                data-i18n="legend_red">Red = Returned</span></span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="kisansetu-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_order_num">Order #</th>
+                                <th data-i18n="th_product_slab">Product & Slab</th>
+                                <th data-i18n="th_buyer_details">Buyer Details</th>
+                                <th data-i18n="th_qty_payout">Quantity & Payout</th>
+                                <th data-i18n="th_delivery_location">Delivery Location</th>
+                                <th data-i18n="th_status_lifecycle">Status Lifecycle</th>
+                                <th data-i18n="th_action">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="farmerOrdersTableBody">
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1.4 Support / Grievances to Ministry -->
+        <div class="farmer-tab-panel" data-tab-panel="support">
+            <div class="support-split-layout">
+                <!-- Raise Grievance Form -->
+                <div class="content-card">
+                    <div class="card-title-row">
+                        <h3 data-i18n="title_raise_grievance">Raise Grievance to Ministry</h3>
+                        <span class="badge-tag" data-i18n="desk_krishi_bhawan">Krishi Bhawan Desk</span>
+                    </div>
+                    <form id="farmerSupportForm">
+                        <div class="form-group">
+                            <label data-i18n="lbl_target_entity">Target Entity (Who is the issue regarding?) *</label>
+                            <select id="farmer_target_entity" class="form-control" required>
+                                <option value="logistics" data-i18n="opt_target_logistics">Logistics Carrier (Delayed
+                                    pickup, damage, route issue)</option>
+                                <option value="consumer" data-i18n="opt_target_consumer">Consumer / Buyer
+                                    (Non-acceptance, payment issue)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_subject">Subject / Issue Summary *</label>
+                            <input type="text" id="farmer_ticket_subject" class="form-control"
+                                data-i18n-placeholder="ph_subject"
+                                placeholder="e.g. Carrier delayed farm-gate pickup by 36 hours" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_incident_desc">Detailed Incident Description *</label>
+                            <textarea id="farmer_ticket_desc" class="form-control" rows="3"
+                                data-i18n-placeholder="ph_incident_desc"
+                                placeholder="Provide consignment details, date, timestamps, impact..."
+                                required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_expected_resolution">Expected Resolution *</label>
+                            <textarea id="farmer_ticket_resolution" class="form-control" rows="2"
+                                data-i18n-placeholder="ph_expected_resolution"
+                                placeholder="What resolution are you expecting from the Ministry/Carrier?"
+                                required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_attach_proof">Attach Photo / Proof Document (Optional)</label>
+                            <input type="file" id="farmer_ticket_file" class="form-control" accept="image/*,.pdf,.txt">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block"
+                            data-i18n="btn_submit_grievance">Escalate to Ministry of Agriculture</button>
+                    </form>
+                </div>
+
+                <!-- Tickets & Resolutions List -->
+                <div class="content-card">
+                    <div class="card-title-row">
+                        <h3 data-i18n="title_my_grievances">My Grievance Status & Ministry Resolutions</h3>
+                    </div>
+                    <div id="farmerTicketsList">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 1.5 Profile Tab -->
+        <div class="farmer-tab-panel" data-tab-panel="profile">
+            <div class="content-card" style="max-width: 600px; margin: 0 auto;">
+                <div class="card-title-row">
+                    <h3 data-i18n="title_farmer_profile">Farmer / FPO Profile & Land Coordinates</h3>
+                </div>
+                <form id="farmerProfileForm">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_farmer_name">Farmer Name</label>
+                            <input type="text" id="farmer_prof_name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_mobile">Registered Mobile</label>
+                            <input type="text" id="farmer_prof_mobile" class="form-control" readonly disabled>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_state">State</label>
+                            <input type="text" id="farmer_prof_state" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_district">District</label>
+                            <input type="text" id="farmer_prof_district" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group" id="villageFieldGroup">
+                            <label data-i18n="lbl_village">Village Name</label>
+                            <input type="text" id="farmer_prof_village" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_pincode">Pincode</label>
+                            <input type="text" id="farmer_prof_pincode" class="form-control" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" data-i18n="btn_save_profile">Save Profile
+                        Changes</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- ====================================================================
+         SECTION 2: BUYER PORTAL
+         ==================================================================== -->
+    <main id="section_buyer" class="role-section">
+        <!-- Buyer Sub-Navigation -->
+        <div class="portal-subnav">
+            <button class="subnav-btn buyer-tab-btn active" data-tab="marketplace"
+                data-i18n="nav_buyer_marketplace">Direct Farm Marketplace</button>
+            <button class="subnav-btn buyer-tab-btn" data-tab="orders" data-i18n="nav_buyer_orders">My Orders (7-Day
+                Return Window)</button>
+            <button class="subnav-btn buyer-tab-btn" data-tab="support" data-i18n="nav_buyer_support">Consumer
+                Grievances</button>
+            <button class="subnav-btn buyer-tab-btn" data-tab="profile" data-i18n="nav_buyer_profile">Buyer
+                Profile</button>
+        </div>
+
+        <!-- 2.1 Buyer Marketplace Tab -->
+        <div class="buyer-tab-panel active" data-tab-panel="marketplace">
+            <!-- Filter & Dynamic Slab Calculator Bar -->
+            <div class="buyer-filter-bar">
+                <div class="filter-bar-grid">
+                    <div class="form-group mb-0">
+                        <label data-i18n="lbl_search_crop">Search Crop or Region</label>
+                        <input type="text" id="buyerSearchInput" class="form-control"
+                            data-i18n-placeholder="ph_search_crop"
+                            placeholder="Search by crop (Rice, Onions, Grapes, Wheat)...">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label data-i18n="lbl_req_quantity">Required Quantity (kg) - Recalculates Slab Price</label>
+                        <input type="number" step="1" id="buyerQtyInput" class="form-control" value="10" min="1">
+                    </div>
+                    <div class="form-group mb-0">
+                        <label data-i18n="lbl_filter_category">Category Filter</label>
+                        <select id="buyerCategoryFilter" class="form-control">
+                            <option value="" data-i18n="opt_all_categories">All Crop Categories</option>
+                            <option value="Grains" data-i18n="cat_grains">Grains & Cereals</option>
+                            <option value="Vegetables" data-i18n="cat_vegetables">Vegetables</option>
+                            <option value="Fruits" data-i18n="cat_fruits">Fruits</option>
+                            <option value="Pulses" data-i18n="cat_pulses">Pulses</option>
+                            <option value="Spices" data-i18n="cat_spices">Spices</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="proximity-notice-strip mt-2 small text-muted" data-i18n="notice_proximity">
+                    📍 Proximity Prioritization Active: Produce sorted by your home state first, then neighboring
+                    states, ensuring lowest transit food miles.
+                </div>
+            </div>
+
+            <!-- Products Grid -->
+            <div id="buyerMarketplaceGrid" class="products-grid">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+        <!-- 2.2 Buyer My Orders Tab -->
+        <div class="buyer-tab-panel" data-tab-panel="orders">
+            <div class="content-card">
+                <div class="card-title-row">
+                    <h3 data-i18n="title_buyer_orders">My Farm Direct Orders</h3>
+                    <div class="status-legend small">
+                        <span class="badge-delivered-yellow mr-2"><span class="timer-icon">⏳</span> <span
+                                data-i18n="legend_yellow">Yellow = 7-Day Waiting / Inspection Period</span></span>
+                        <span class="badge-delivered-green mr-2"><span class="check-icon">✅</span> <span
+                                data-i18n="legend_green">Green = Verified & Finalized</span></span>
+                        <span class="badge-returned-red"><span class="return-icon">🛑</span> <span
+                                data-i18n="legend_red">Red = Returned</span></span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="kisansetu-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_order_num">Order #</th>
+                                <th data-i18n="th_date">Date</th>
+                                <th data-i18n="th_product">Product</th>
+                                <th data-i18n="th_farmer">Farmer</th>
+                                <th data-i18n="th_quantity">Quantity</th>
+                                <th data-i18n="th_rate_kg">Rate/kg</th>
+                                <th data-i18n="th_total">Total</th>
+                                <th data-i18n="th_order_status">Order Status</th>
+                                <th data-i18n="th_action">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="buyerOrdersTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2.3 Buyer Support Tab -->
+        <div class="buyer-tab-panel" data-tab-panel="support">
+            <div class="support-split-layout">
+                <div class="content-card">
+                    <div class="card-title-row">
+                        <h3 data-i18n="title_consumer_grievance">File Consumer Grievance</h3>
+                        <span class="badge-tag" data-i18n="direct_listing">Direct Resolution</span>
+                    </div>
+                    <form id="buyerSupportForm">
+                        <div class="form-group">
+                            <label data-i18n="lbl_target_entity">Issue Regarding *</label>
+                            <select id="buyer_target_entity" class="form-control" required>
+                                <option value="logistics" data-i18n="opt_target_logistics_b">Logistics Carrier (Delayed
+                                    delivery, package handled roughly)</option>
+                                <option value="farmer" data-i18n="opt_target_farmer">Farmer (Grade mismatch, delayed
+                                    harvest handover)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_subject">Subject *</label>
+                            <input type="text" id="buyer_ticket_subject" class="form-control"
+                                data-i18n-placeholder="ph_subject" placeholder="e.g. Package seal torn upon delivery"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_incident_desc">Description of the Issue *</label>
+                            <textarea id="buyer_ticket_desc" class="form-control" rows="3"
+                                data-i18n-placeholder="ph_incident_desc"
+                                placeholder="Provide complete facts and order number..." required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_expected_resolution">Expected Resolution *</label>
+                            <textarea id="buyer_ticket_resolution" class="form-control" rows="2"
+                                data-i18n-placeholder="ph_expected_resolution"
+                                placeholder="What resolution are you expecting?" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_attach_proof">Attach Proof Photo / Invoice (Optional)</label>
+                            <input type="file" id="buyer_ticket_file" class="form-control" accept="image/*,.pdf,.txt">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" data-i18n="btn_submit_grievance">Submit
+                            Grievance to Ministry</button>
+                    </form>
+                </div>
+
+                <div class="content-card">
+                    <div class="card-title-row">
+                        <h3 data-i18n="title_my_grievances">My Raised Issues & Resolutions</h3>
+                    </div>
+                    <div id="buyerTicketsList">
+                        <!-- Loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2.4 Buyer Profile Tab -->
+        <div class="buyer-tab-panel" data-tab-panel="profile">
+            <div class="content-card" style="max-width: 600px; margin: 0 auto;">
+                <div class="card-title-row">
+                    <h3 data-i18n="title_buyer_profile">Buyer Profile & Delivery Address</h3>
+                </div>
+                <form id="buyerProfileForm">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_full_name">Name</label>
+                            <input type="text" id="buyer_prof_name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_mobile">Mobile Number</label>
+                            <input type="text" id="buyer_prof_mobile" class="form-control" readonly disabled>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_state">State (Used for Marketplace Proximity Sorting)</label>
+                            <input type="text" id="buyer_prof_state" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_district">District</label>
+                            <input type="text" id="buyer_prof_district" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_pincode">Pincode</label>
+                        <input type="text" id="buyer_prof_pincode" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" data-i18n="btn_save_profile">Save Profile</button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <!-- ====================================================================
+         SECTION 3: LOGISTICS PORTAL
+         ==================================================================== -->
+    <main id="section_logistics" class="role-section">
+        <!-- Logistics Sub-Navigation -->
+        <div class="portal-subnav">
+            <button type="button" class="subnav-btn logistics-subnav-btn active" data-tab="operations" onclick="showLogisticsSubTab('operations')">
+                <span>🚜</span> <span data-i18n="nav_hub_operations">Hub Operations & Pickups</span>
+            </button>
+            <button type="button" class="subnav-btn logistics-subnav-btn" data-tab="routing" onclick="showLogisticsSubTab('routing')">
+                <span>🗺️</span> <span data-i18n="nav_smart_routing">Route Navigation & Map</span>
+            </button>
+            <button type="button" class="subnav-btn logistics-subnav-btn" data-tab="pipeline" onclick="showLogisticsSubTab('pipeline')">
+                <span>📋</span> <span data-i18n="nav_all_consignments">Audit</span>
+            </button>
+        </div>
+
+        <!-- 3.1 Operations Panel: Hub Dispatch & Pickups/Drops -->
+        <div class="logistics-subnav-panel active" data-tab-panel="operations">
+            <!-- Active Logged-in Carrier Status Banner -->
+            <div class="active-agent-carrier-bar mb-3" id="logisticsActiveCarrierBar" style="display: flex; justify-content: space-between; align-items: center; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: var(--radius-sm); padding: 10px 16px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 1.4rem;">🚚</span>
+                    <div>
+                        <div class="small text-muted font-weight-bold">LOGISTICS CARRIER PORTAL</div>
+                        <div id="logisticsCurrentAgentName" class="font-weight-bold text-success" style="font-size: 1rem;">Gramin Express Logistics</div>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <span class="badge badge-success font-weight-bold">🟢 Shared Carrier Fleet Active</span>
+                    <div class="small text-muted mt-1" style="font-size: 0.76rem;">Accepted orders are exclusively locked to your account.</div>
+                </div>
+            </div>
+
+            <!-- Active Delivery Hub Dispatch Controller -->
+            <div class="content-card mb-4 hub-dispatch-card">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="title_hub_dispatch">🏢 Active Operating Delivery Hub</h3>
+                        <p class="small text-muted" data-i18n="sub_hub_dispatch">
+                            Select your operating hub to view nearby prioritized farm gate pickups and connected multi-hub delivery corridors.
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-primary font-weight-bold" onclick="LogisticsHook.openAddHubModal()">
+                        <span>➕</span> <span data-i18n="btn_add_delivery_hub">Add New Delivery Hub</span>
+                    </button>
+                </div>
+                <div class="hub-selector-grid">
+                    <div class="form-group mb-0" style="flex: 1; min-width: 300px;">
+                        <label class="small font-weight-bold" data-i18n="lbl_select_operating_hub">Select Active Logistics Hub:</label>
+                        <select id="logisticsActiveHubSelect" class="form-control" onchange="LogisticsHook.onHubSelected(this.value)">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="active-hub-details-banner" id="activeHubDetailsBanner">
+                        <!-- Populated dynamically with incharge and location info -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hub Pickups & Delivery Drops Card -->
+            <div class="content-card">
+                <div class="logistics-tabs-nav">
+                    <button type="button" class="logistics-tab-btn active" data-tab="pickups" onclick="LogisticsHook.switchTab('pickups')">
+                        <span>🚜</span> <span data-i18n="tab_available_pickups">Available Pickups (Near Hub)</span>
+                        <span class="tab-counter-badge" id="badgeNearPickupsCount">0</span>
+                    </button>
+                    <button type="button" class="logistics-tab-btn" data-tab="drops" onclick="LogisticsHook.switchTab('drops')">
+                        <span>🚛</span> <span data-i18n="tab_delivery_drops">Delivery Drops (Multi-Hub Route)</span>
+                        <span class="tab-counter-badge" id="badgeRouteDropsCount">0</span>
+                    </button>
+                </div>
+
+                <!-- Panel 1: Pickups Near Active Hub -->
+                <div class="logistics-tab-panel active" id="logisticsPanel_pickups">
+                    <div class="proximity-banner">
+                        <span>📍 <strong>Nearby Farm Pickups:</strong> Sorted by shortest distance to your selected hub. Delivery agents must inspect goods and verify Order # match before loading.</span>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="kisansetu-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="th_consignment_num">Consignment #</th>
+                                    <th data-i18n="th_cargo">Cargo & Load</th>
+                                    <th data-i18n="th_origin_farmer">Origin Farmer & Gate</th>
+                                    <th>Distance to Active Hub</th>
+                                    <th data-i18n="th_order_status">Status</th>
+                                    <th>Carrier Verification Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nearPickupsTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Multi-Hub Connected Delivery Drops -->
+                <div class="logistics-tab-panel" id="logisticsPanel_drops" style="display: none;">
+                    <div class="multihub-banner">
+                        <span>🚛 <strong>Hub-to-Hub Connected Distribution:</strong> Products travel from the origin hub to reach the consumer's nearby hub, from which they are distributed to the customer's doorstep.</span>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="kisansetu-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="th_consignment_num">Consignment #</th>
+                                    <th data-i18n="th_cargo">Cargo & Load</th>
+                                    <th data-i18n="th_dest_consumer">Consumer & Doorstep</th>
+                                    <th>Consumer's Nearby Hub</th>
+                                    <th>Carrier Assignment</th>
+                                    <th>Distribution Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="routeDropsTableBody">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3.2 Routing Panel: AI Route Optimization & OpenStreetMap Navigation -->
+        <div class="logistics-subnav-panel" data-tab-panel="routing">
+            <div class="content-card mb-4 logistics-ai-card">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="title_ai_route_opt">🤖 Smart Route Optimization & Multi-Hub Collection</h3>
+                        <p class="small text-muted" data-i18n="sub_ai_route_opt">
+                            Finds the fastest and safest delivery paths considering live road traffic, distances, and nearby collection centers.
+                        </p>
+                    </div>
+                    <div class="ai-badge-group">
+                        <span class="badge badge-success" id="logisticsOptScoreBadge">98.4% Efficiency</span>
+                        <span class="badge-tag" data-i18n="badge_2opt_active">Smart Route Active</span>
+                    </div>
+                </div>
+
+                <!-- Optimization Controls Bar -->
+                <div class="logistics-controls-bar">
+                    <div class="controls-left">
+                        <div class="form-group mb-0 mr-3">
+                            <label class="small font-weight-bold" data-i18n="lbl_logistics_corridor">Delivery Route Corridor:</label>
+                            <select id="logisticsCorridorSelect" class="form-control" style="min-width: 320px;">
+                                <option value="chennai_corridor" data-i18n="opt_chennai_corridor">Chennai Delta Corridor (3 Hubs, 4 Drops)</option>
+                                <option value="mumbai_pune_corridor" data-i18n="opt_mumbai_corridor">Mumbai-Pune Express Corridor (2 Hubs, 2 Drops)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="controls-right">
+                        <button type="button" id="btnRunRouteOpt" class="btn btn-primary"
+                            onclick="LogisticsHook.triggerOptimization()">
+                            <span id="btnOptIcon">⚡</span> <span data-i18n="btn_run_route_opt">Find Best Route</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Route Summary KPI Strip -->
+                <div class="route-metrics-grid" id="routeMetricsGrid">
+                    <div class="route-metric-box">
+                        <div class="metric-icon">🛣️</div>
+                        <div class="metric-body">
+                            <span class="metric-label" data-i18n="stat_total_distance">Total Distance</span>
+                            <strong class="metric-value" id="metricTotalDist">-- km</strong>
+                            <span class="metric-sub">Road Distance</span>
+                        </div>
+                    </div>
+                    <div class="route-metric-box">
+                        <div class="metric-icon">⏱️</div>
+                        <div class="metric-body">
+                            <span class="metric-label" data-i18n="stat_est_duration">Est. Duration</span>
+                            <strong class="metric-value" id="metricDuration">-- mins</strong>
+                            <span class="metric-sub" id="metricSpeedBaseline">Avg 45 km/h</span>
+                        </div>
+                    </div>
+                    <div class="route-metric-box metric-accent">
+                        <div class="metric-icon">🚦</div>
+                        <div class="metric-body">
+                            <span class="metric-label" data-i18n="stat_traffic_avoided">Traffic Delay Saved</span>
+                            <strong class="metric-value text-success" id="metricTrafficSaved">-- mins</strong>
+                            <span class="metric-sub">Congestion Detour</span>
+                        </div>
+                    </div>
+                    <div class="route-metric-box">
+                        <div class="metric-icon">⛽</div>
+                        <div class="metric-body">
+                            <span class="metric-label" data-i18n="stat_fuel_saved">Fuel Conserved</span>
+                            <strong class="metric-value" id="metricFuelSaved">-- L</strong>
+                            <span class="metric-sub" id="metricCo2Saved">-- kg CO2</span>
+                        </div>
+                    </div>
+                    <div class="route-metric-box">
+                        <div class="metric-icon">📦</div>
+                        <div class="metric-body">
+                            <span class="metric-label" data-i18n="stat_hubs_collected">Hubs Aggregated</span>
+                            <strong class="metric-value" id="metricHubsCount">--</strong>
+                            <span class="metric-sub">Prioritized Pickup</span>
+                        </div>
+                    </div>
+                    <div class="route-metric-box">
+                        <div class="metric-icon">🎯</div>
+                        <div class="metric-body">
+                            <span class="metric-label" data-i18n="stat_deliveries_routed">Orders Delivered</span>
+                            <strong class="metric-value" id="metricDeliveriesCount">--</strong>
+                            <span class="metric-sub">Optimized Drops</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map and Waypoints Side-by-Side Grid -->
+                <div class="logistics-map-workspace">
+                    <!-- Left: Interactive Leaflet Map -->
+                    <div class="logistics-map-panel">
+                        <div class="map-header-strip">
+                            <span class="map-status-pill">
+                                <span class="live-dot"></span>
+                                <span data-i18n="lbl_live_traffic_telemetry">Live Traffic Multipliers Active</span>
+                            </span>
+                            <div class="map-legend-items">
+                                <span class="legend-chip"><span class="legend-color-box bg-depot"></span> <span
+                                        data-i18n="legend_depot">Depot</span></span>
+                                <span class="legend-chip"><span class="legend-color-box bg-hub"></span> <span
+                                        data-i18n="legend_hub">Hub Pickup</span></span>
+                                <span class="legend-chip"><span class="legend-color-box bg-delivery"></span> <span
+                                        data-i18n="legend_delivery">Consumer Drop</span></span>
+                                <span class="legend-chip"><span class="legend-line line-green"></span> <span
+                                        data-i18n="legend_free_flow">Free Flow</span></span>
+                                <span class="legend-chip"><span class="legend-line line-amber"></span> <span
+                                        data-i18n="legend_moderate">Moderate</span></span>
+                                <span class="legend-chip"><span class="legend-line line-red"></span> <span
+                                        data-i18n="legend_heavy">Heavy</span></span>
+                            </div>
+                        </div>
+
+                        <!-- OpenStreetMap Delivery Search & Live Navigation Toolbar -->
+                        <div class="osm-navigation-toolbar">
+                            <div class="osm-search-input-group">
+                                <span class="osm-search-icon">🗺️</span>
+                                <input type="text" id="osmDeliverySearchInput" class="osm-search-input"
+                                    placeholder="Search delivery location or landmark on OpenStreetMap (e.g. Adyar, Chennai)..."
+                                    onkeypress="if(event.key==='Enter') LogisticsHook.searchDeliveryLocation()">
+                                <button type="button" class="btn btn-sm btn-primary" onclick="LogisticsHook.searchDeliveryLocation()">
+                                    <span>🔍</span> <span data-i18n="btn_search_osm">Search on OSM</span>
+                                </button>
+                            </div>
+                            <div class="osm-toolbar-actions">
+                                <button type="button" class="btn btn-sm btn-outline-success font-weight-bold" onclick="LogisticsHook.openExternalOSMNavigation()" title="Open full optimized corridor itinerary in OpenStreetMap Directions">
+                                    <span>🧭</span> <span data-i18n="btn_open_osm_directions">Turn-by-Turn in OpenStreetMap</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="logisticsRouteMap" class="logistics-leaflet-container"></div>
+                    </div>
+
+                    <!-- Right: Sequenced Waypoint Checklist -->
+                    <div class="logistics-itinerary-panel">
+                        <div class="itinerary-header">
+                            <h4 data-i18n="title_itinerary_checklist">Sequenced Route Itinerary</h4>
+                            <span class="badge badge-info" id="itineraryLegCount">8 Stops</span>
+                        </div>
+                        <p class="small text-muted" data-i18n="sub_itinerary_checklist">
+                            Farm hub collections are scheduled before consumer deliveries.
+                        </p>
+                        <div class="itinerary-list" id="itineraryStopsList">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3.3 Audit Panel: Consignment & Delivery Audit -->
+        <div class="logistics-subnav-panel" data-tab-panel="pipeline">
+            <div class="content-card">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="tab_all_consignments">📋 Consignment & Delivery Audit</h3>
+                        <p class="small text-muted">Complete transparent audit log of all farm collections, hub-to-hub movements, assigned carriers, and consumer doorstep deliveries.</p>
+                    </div>
+                    <div class="audit-filters-bar" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-xs btn-primary font-weight-bold" id="btnAuditFilterAll" onclick="LogisticsHook.filterAudit('all')">All Records</button>
+                        <button type="button" class="btn btn-xs btn-outline-success font-weight-bold" id="btnAuditFilterMine" onclick="LogisticsHook.filterAudit('mine')">Assigned to Me</button>
+                        <button type="button" class="btn btn-xs btn-outline-warning text-dark font-weight-bold" id="btnAuditFilterOpen" onclick="LogisticsHook.filterAudit('unassigned')">Open / Unclaimed</button>
+                    </div>
+                </div>
+                <div class="table-responsive mt-2">
+                    <table class="kisansetu-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_consignment_num">Consignment #</th>
+                                <th data-i18n="th_cargo">Cargo & Quantity</th>
+                                <th>Origin Farm & Hub</th>
+                                <th>Consumer's Nearby Hub & Doorstep</th>
+                                <th>Assigned Carrier</th>
+                                <th data-i18n="th_order_status">Transit Status</th>
+                                <th>Audit Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logisticsOrdersTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ====================================================================
+         SECTION 4: ADMIN (MINISTRY OF AGRICULTURE) PORTAL
+         ==================================================================== -->
+    <main id="section_admin" class="role-section">
+        <!-- Admin Sub-Navigation -->
+        <div class="portal-subnav">
+            <button type="button" class="subnav-btn admin-tab-btn active" data-tab="directory" onclick="showAdminTab('directory')">
+                <span>🗺️</span> <span data-i18n="nav_admin_directory">State & District Directory</span>
+            </button>
+            <button type="button" class="subnav-btn admin-tab-btn" data-tab="orders" onclick="showAdminTab('orders')">
+                <span>📦</span> <span data-i18n="nav_admin_orders">Nationwide Orders</span>
+            </button>
+            <button type="button" class="subnav-btn admin-tab-btn" data-tab="grievances" onclick="showAdminTab('grievances')">
+                <span>⚖️</span> <span data-i18n="nav_admin_grievances">Grievance Redressal</span>
+            </button>
+            <button type="button" class="subnav-btn admin-tab-btn" data-tab="forecast" onclick="showAdminTab('forecast')">
+                <span>📈</span> <span data-i18n="nav_admin_forecast">Price & Demand AI</span>
+            </button>
+        </div>
+
+        <!-- 4.1 State & District Directory & Member Activity Monitor (Default View) -->
+        <div class="admin-tab-panel active" data-tab-panel="directory">
+            <div class="content-card mb-4" id="adminDirectoryCard">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="title_admin_directory">🗺️ State & District Directory & Member Activity Monitor</h3>
+                        <p class="small text-muted" data-i18n="sub_admin_directory">Inspect farmers state and district-wise with live filters across Farmers, Customers, and Logistics partners to monitor their listings, orders, and operational activities.</p>
+                    </div>
+                    <span class="badge-tag" data-i18n="live_registry">Live National Registry</span>
+                </div>
+
+                <!-- KPI Counters Strip -->
+                <div class="admin-kpi-strip">
+                    <div class="admin-kpi-card">
+                        <span class="admin-kpi-icon">🌾</span>
+                        <div>
+                            <div class="admin-kpi-label" data-i18n="lbl_total_farmers">Farmers Registered</div>
+                            <div class="admin-kpi-val" id="adminKpiTotalFarmers">0</div>
+                        </div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <span class="admin-kpi-icon">🛒</span>
+                        <div>
+                            <div class="admin-kpi-label" data-i18n="lbl_total_customers">Customers / Buyers</div>
+                            <div class="admin-kpi-val" id="adminKpiTotalBuyers">0</div>
+                        </div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <span class="admin-kpi-icon">🚚</span>
+                        <div>
+                            <div class="admin-kpi-label" data-i18n="lbl_total_logistics">Logistics Fleet</div>
+                            <div class="admin-kpi-val" id="adminKpiTotalLogistics">0</div>
+                        </div>
+                    </div>
+                    <div class="admin-kpi-card">
+                        <span class="admin-kpi-icon">📊</span>
+                        <div>
+                            <div class="admin-kpi-label" data-i18n="lbl_filtered_results">Filtered Results</div>
+                            <div class="admin-kpi-val text-primary" id="adminKpiFilteredCount">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Directory Controls & Filters Bar -->
+                <div class="admin-directory-controls">
+                    <div class="directory-filter-row">
+                        <label class="small font-weight-bold mb-0 mr-2" data-i18n="lbl_filter_by_role">Filter Role:</label>
+                        <div class="directory-role-tabs" id="adminDirRoleTabs">
+                            <button type="button" class="dir-role-btn active" data-role="farmer" onclick="AdminController.setDirectoryRole('farmer')">
+                                <span>🌾</span> <span data-i18n="role_farmers">Farmers</span>
+                                <span class="dir-role-count" id="badgeCountFarmers">0</span>
+                            </button>
+                            <button type="button" class="dir-role-btn" data-role="buyer" onclick="AdminController.setDirectoryRole('buyer')">
+                                <span>🛒</span> <span data-i18n="role_customers">Customers</span>
+                                <span class="dir-role-count" id="badgeCountBuyers">0</span>
+                            </button>
+                            <button type="button" class="dir-role-btn" data-role="logistics" onclick="AdminController.setDirectoryRole('logistics')">
+                                <span>🚚</span> <span data-i18n="role_logistics">Logistics</span>
+                                <span class="dir-role-count" id="badgeCountLogistics">0</span>
+                            </button>
+                            <button type="button" class="dir-role-btn" data-role="all" onclick="AdminController.setDirectoryRole('all')">
+                                <span>👥</span> <span data-i18n="role_all">All Members</span>
+                                <span class="dir-role-count" id="badgeCountAll">0</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="directory-inputs-row">
+                        <div class="dir-select-wrap">
+                            <label class="small text-muted mb-1" data-i18n="lbl_filter_state">Select State:</label>
+                            <select id="adminDirStateSelect" class="form-control" onchange="AdminController.onStateChange(this.value)">
+                                <option value="" data-i18n="opt_all_states">All States (Pan-India)</option>
+                            </select>
+                        </div>
+                        <div class="dir-select-wrap">
+                            <label class="small text-muted mb-1" data-i18n="lbl_filter_district">Select District:</label>
+                            <select id="adminDirDistrictSelect" class="form-control" onchange="AdminController.onDistrictChange(this.value)">
+                                <option value="" data-i18n="opt_all_districts">All Districts</option>
+                            </select>
+                        </div>
+                        <div class="dir-search-wrap">
+                            <label class="small text-muted mb-1" data-i18n="lbl_search_member">Search Member / Activity:</label>
+                            <input type="text" id="adminDirSearchInput" class="form-control" placeholder="Search by name, mobile, or village..." oninput="AdminController.debounceSearch()">
+                        </div>
+                        <div style="align-self: flex-end;">
+                            <button type="button" class="btn btn-outline-light" onclick="AdminController.resetDirectoryFilters()" data-i18n="btn_reset_filters">
+                                🔄 Reset Filters
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Members & Activity Table -->
+                <div class="table-responsive">
+                    <table class="kisansetu-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_member_name">Member Name & Contact</th>
+                                <th data-i18n="th_role">Role</th>
+                                <th data-i18n="th_state_district">State & District</th>
+                                <th data-i18n="th_village">Village / Area</th>
+                                <th data-i18n="th_operational_activity">Operational Activity & Track Record</th>
+                                <th data-i18n="th_reg_date">Registered</th>
+                                <th data-i18n="th_status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminDirectoryTableBody">
+                            <!-- Loaded dynamically via AdminController.loadUserDirectory() -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4.2 Nationwide Farmer Produce Orders -->
+        <div class="admin-tab-panel" data-tab-panel="orders">
+            <div class="content-card">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="title_national_orders">Nationwide Farmer Produce Orders</h3>
+                        <p class="small text-muted" data-i18n="sub_national_orders">Recent Direct Farmer-to-Customer Orders</p>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="kisansetu-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_order_num">Order #</th>
+                                <th data-i18n="th_commodity">Commodity</th>
+                                <th data-i18n="th_farmer_state">Farmer & State</th>
+                                <th data-i18n="th_buyer">Buyer</th>
+                                <th data-i18n="th_quantity">Quantity</th>
+                                <th data-i18n="th_amount">Amount</th>
+                                <th data-i18n="th_order_status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminNationalOrdersTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4.3 Ministry Grievance Resolution Desk -->
+        <div class="admin-tab-panel" data-tab-panel="grievances">
+            <div class="content-card mb-4">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="title_national_grievances">National Grievance Redressal Desk</h3>
+                        <p class="small text-muted" data-i18n="sub_national_grievances">Review disputes between Farmers, Consumers, and Logistics. Enter official resolutions to settle claims.</p>
+                    </div>
+                    <span class="badge-tag" data-i18n="desk_krishi_bhawan">Krishi Bhawan Tribunal</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="kisansetu-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="th_ticket_num">Ticket #</th>
+                                <th data-i18n="th_raised_by">Raised By</th>
+                                <th data-i18n="th_target">Target</th>
+                                <th data-i18n="th_subject_resolution">Subject & Expected Resolution</th>
+                                <th data-i18n="th_status_action">Status & Ministry Action</th>
+                                <th data-i18n="th_date">Date</th>
+                                <th data-i18n="th_action">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminGrievanceTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4.4 AI Demand Forecasting & Price Transparency Radar -->
+        <div class="admin-tab-panel" data-tab-panel="forecast">
+            <div class="content-card mb-4">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="title_ai_forecast_admin">AI Demand Forecast & Fair Price Recommendation Engine</h3>
+                        <p class="small text-muted" data-i18n="sub_ai_forecast_admin">Powered by Scikit-learn predictive model using rainfall indices, seasonal trends, and historical demand.</p>
+                    </div>
+                    <span class="badge badge-success">AI Active</span>
+                </div>
+                <div id="aiForecastCardContent">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ====================================================================
+         MODALS & DIALOGS
+         ==================================================================== -->
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal-backdrop">
+        <div class="modal-content-card">
+            <div class="modal-header">
+                <h3 data-i18n="login_title">Portal Sign In</h3>
+                <button type="button" class="modal-close-btn" onclick="closeLoginModal()">&times;</button>
+            </div>
+            <form id="loginForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label data-i18n="lbl_login_role">Login As Role *</label>
+                        <select id="login_role_select" class="form-control" required>
+                            <option value="farmer" data-i18n="role_farmer">1.) Farmer / FPO</option>
+                            <option value="buyer" data-i18n="role_buyer">2.) Buyer / Bulk Buyer</option>
+                            <option value="logistics" data-i18n="role_logistics">3.) Logistics Partner</option>
+                            <option value="admin" data-i18n="role_admin">4.) Admin (Ministry)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_mobile">Mobile Number *</label>
+                        <input type="tel" id="login_mobile" class="form-control" placeholder="e.g. 9840123456" required>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_password">Password *</label>
+                        <input type="password" id="login_password" class="form-control" placeholder="••••••••" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" onclick="closeLoginModal()"
+                        data-i18n="btn_cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="login_btn">Sign In</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Register Modal with GPS & Leaflet Map Picker -->
+    <div id="registerModal" class="modal-backdrop">
+        <div class="modal-content-card" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3 data-i18n="title_register">Register on KisanSetu</h3>
+                <button type="button" class="modal-close-btn" onclick="closeRegisterModal()">&times;</button>
+            </div>
+            <form id="registerForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label data-i18n="lbl_register_as">I am registering as: *</label>
+                        <select id="reg_role" class="form-control" required>
+                            <option value="farmer" data-i18n="role_farmer">1.) Farmer / FPO</option>
+                            <option value="buyer" data-i18n="role_buyer">2.) Buyer / Bulk Buyer</option>
+                            <option value="logistics" data-i18n="role_logistics">3.) Logistics Partner</option>
+                            <option value="admin" data-i18n="role_admin">4.) Admin (Ministry)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_full_name">Full Name *</label>
+                            <input type="text" id="reg_name" class="form-control" data-i18n-placeholder="ph_full_name"
+                                placeholder="e.g. Murugan Raman" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_mobile">Mobile Number *</label>
+                            <input type="tel" id="reg_mobile" class="form-control" placeholder="10-digit mobile"
+                                required>
+                        </div>
+                    </div>
+
+                    <!-- Buyer OTP Section -->
+                    <div id="buyerOtpSection" class="form-group"
+                        style="display: none; background: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-sm); padding: 12px;">
+                        <label data-i18n="lbl_mobile_otp">Mobile OTP Verification (Buyer) *</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="reg_otp" class="form-control" data-i18n-placeholder="ph_otp"
+                                placeholder="Enter 6-digit OTP">
+                            <button type="button" id="btnSendOtp" class="btn btn-sm btn-outline-primary"
+                                style="white-space: nowrap;" data-i18n="btn_send_otp">Send OTP</button>
+                        </div>
+                        <small class="text-muted" data-i18n="sub_otp_notice">Click 'Send OTP' to simulate SMS dispatch
+                            with test OTP auto-fill.</small>
+                    </div>
+
+                    <!-- Farmer GPS & Interactive Map Picker -->
+                    <div id="farmerMapSection" class="form-group">
+                        <div class="gps-action-row">
+                            <label class="mb-0" data-i18n="lbl_farm_coords">📍 Farm Location & Coordinates:</label>
+                            <button type="button" id="btnFetchGps" class="btn btn-sm btn-outline-primary">
+                                <span data-i18n="fetch_gps">📍 Fetch GPS Location</span>
+                            </button>
+                        </div>
+                        <div id="registerMapContainer" class="map-picker-container"></div>
+                        <div id="map_selected_hint" class="map-location-hint" data-i18n="map_hint">
+                            Click on the map or drag the pin to set your exact farm/warehouse location
+                        </div>
+                        <input type="hidden" id="reg_lat">
+                        <input type="hidden" id="reg_lng">
+                    </div>
+
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_state">State *</label>
+                            <input type="text" id="reg_state" class="form-control" placeholder="e.g. Tamil Nadu"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_district">District *</label>
+                            <input type="text" id="reg_district" class="form-control" placeholder="e.g. Chennai"
+                                required>
+                        </div>
+                    </div>
+
+                    <div class="form-row-2">
+                        <div class="form-group" id="villageFieldGroup">
+                            <label data-i18n="lbl_village">Village Name</label>
+                            <input type="text" id="reg_village" class="form-control" placeholder="e.g. Kovilambakkam">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_pincode">Pincode *</label>
+                            <input type="text" id="reg_pincode" class="form-control" placeholder="e.g. 600129" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_password">Password *</label>
+                            <input type="password" id="reg_password" class="form-control" placeholder="••••••••"
+                                required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_confirm_password">Confirm Password *</label>
+                            <input type="password" id="reg_confirm_password" class="form-control" placeholder="••••••••"
+                                required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" onclick="closeRegisterModal()"
+                        data-i18n="btn_cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="register_btn">Register Account</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Place Order Modal -->
+    <div id="placeOrderModal" class="modal-backdrop">
+        <div class="modal-content-card">
+            <div class="modal-header">
+                <h3 data-i18n="title_direct_purchase">Direct Purchase from Farm</h3>
+                <button type="button" class="modal-close-btn"
+                    onclick="BuyerController.closeOrderModal()">&times;</button>
+            </div>
+            <form id="directOrderForm">
+                <div class="modal-body">
+                    <div
+                        style="background: #f8fafc; padding: 14px; border-radius: var(--radius-md); margin-bottom: 16px;">
+                        <h4 id="modal_order_crop" class="mb-1">Crop</h4>
+                        <div class="small text-muted"><span data-i18n="th_farmer">Farmer</span>: <strong
+                                id="modal_order_farmer">Farmer Name</strong></div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_order_quantity">Order Quantity (kg) *</label>
+                        <input type="number" step="0.5" id="modal_order_qty" class="form-control" min="1" required>
+                    </div>
+                    <div class="dynamic-price-box">
+                        <div class="price-header-row">
+                            <span data-i18n="lbl_applicable_slab">Applicable Slab Price:</span>
+                            <strong id="modal_order_unit_price" class="text-primary font-weight-bold">₹0 / kg</strong>
+                        </div>
+                        <div class="price-header-row">
+                            <span data-i18n="lbl_est_total_payable">Estimated Total Payable:</span>
+                            <strong id="modal_order_total" class="text-success font-weight-bold"
+                                style="font-size: 1.3rem;">₹0</strong>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_delivery_addr">Delivery Address & Landmark *</label>
+                        <textarea id="modal_order_location" class="form-control" rows="2" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" onclick="BuyerController.closeOrderModal()"
+                        data-i18n="btn_cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="btn_confirm_order">Confirm & Place Direct
+                        Order</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Return Order Modal -->
+    <div id="returnOrderModal" class="modal-backdrop">
+        <div class="modal-content-card">
+            <div class="modal-header">
+                <h3 class="text-danger" data-i18n="title_return_modal">⚠️ Raise Issue / Request Return</h3>
+                <button type="button" class="modal-close-btn"
+                    onclick="BuyerController.closeReturnModal()">&times;</button>
+            </div>
+            <form id="returnOrderForm">
+                <div class="modal-body">
+                    <div class="alert-info-box"
+                        style="background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 0.88rem; color: #991b1b;"
+                        data-i18n="alert_return_terms">
+                        7-Day Inspection Protection: In accordance with KisanSetu fair trade standards, return requests
+                        are accepted only for: 1) Wrong Item Delivered or 2) Damaged Item Delivered.
+                    </div>
+                    <p class="small text-muted mb-2"><span data-i18n="th_order_num">Order #</span><strong
+                            id="modal_return_order_num"></strong> (<span id="modal_return_crop"></span> <span
+                            data-i18n="th_farmer">from</span> <span id="modal_return_farmer"></span>)</p>
+
+                    <div class="form-group">
+                        <label data-i18n="lbl_return_reason">Reason for Return *</label>
+                        <select id="return_reason_select" class="form-control" required>
+                            <option value="wrong_item" data-i18n="opt_wrong_item">Wrong Item Delivered (Produce
+                                mismatch)</option>
+                            <option value="damaged_item" data-i18n="opt_damaged_item">Damaged Item Delivered (Transit
+                                spoilage/bag torn)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_upload_proof">Upload Photo Proof of Damage / Wrong Item (Optional)</label>
+                        <input type="file" id="return_proof_file" class="form-control" accept="image/*,.pdf">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" onclick="BuyerController.closeReturnModal()"
+                        data-i18n="btn_cancel">Cancel</button>
+                    <button type="submit" class="btn btn-outline-danger" data-i18n="btn_submit_return">Submit Return
+                        Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logistics Tracking Modal -->
+    <div id="trackingModal" class="modal-backdrop">
+        <div class="modal-content-card" style="max-width: 820px;">
+            <div class="modal-header">
+                <h3 data-i18n="title_tracking_modal">Live Logistics & Route Telemetry</h3>
+                <button type="button" class="modal-close-btn" onclick="closeTrackingModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="trackingModalContent">
+                <!-- Rendered by logistics_hook.js -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-light" onclick="closeTrackingModal()"
+                    data-i18n="btn_cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ministry Admin Grievance Resolve Modal -->
+    <div id="adminResolveModal" class="modal-backdrop">
+        <div class="modal-content-card">
+            <div class="modal-header">
+                <h3 data-i18n="title_resolve_modal">🏛️ Issue Official Ministry Resolution</h3>
+                <button type="button" class="modal-close-btn"
+                    onclick="AdminController.closeResolveModal()">&times;</button>
+            </div>
+            <form id="adminResolutionForm">
+                <div class="modal-body">
+                    <p class="small text-muted"><span data-i18n="th_ticket_num">Ticket</span>: <strong
+                            id="modal_resolve_ticket_num"></strong> <span data-i18n="th_raised_by">by</span> <span
+                            id="modal_resolve_raised_by"></span></p>
+                    <div
+                        style="background: #f8fafc; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 14px; font-size: 0.88rem;">
+                        <div><strong data-i18n="lbl_subject">Subject:</strong> <span id="modal_resolve_subject"></span>
+                        </div>
+                        <div class="mt-1"><strong data-i18n="lbl_expected_resolution">Expected Resolution:</strong>
+                            <span id="modal_resolve_expected"></span></div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_ministry_verdict">Official Ministry Verdict / Action Taken Notes *</label>
+                        <textarea id="admin_resolution_text" class="form-control" rows="4"
+                            data-i18n-placeholder="ph_ministry_verdict" placeholder="Enter resolution details..."
+                            required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" onclick="AdminController.closeResolveModal()"
+                        data-i18n="btn_cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="btn_record_verdict">Record Ministry Verdict
+                        & Close Ticket</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Register New Delivery Hub Modal -->
+    <div id="addDeliveryHubModal" class="modal-backdrop">
+        <div class="modal-content-card" style="max-width: 650px;">
+            <div class="modal-header">
+                <h3 data-i18n="title_add_hub_modal">🏢 Register New Regional Delivery Hub</h3>
+                <button type="button" class="modal-close-btn" onclick="LogisticsHook.closeAddHubModal()">&times;</button>
+            </div>
+            <form id="addDeliveryHubForm" onsubmit="event.preventDefault(); LogisticsHook.saveNewHub();">
+                <div class="modal-body">
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_hub_name">Hub Name *</label>
+                            <input type="text" id="hub_name" class="form-control" placeholder="e.g. Salem Central Agro Cold Storage" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_hub_incharge">Hub Incharge Name *</label>
+                            <input type="text" id="hub_incharge" class="form-control" placeholder="e.g. K. Rajesh" required>
+                        </div>
+                    </div>
+                    <div class="form-row-2">
+                        <div class="form-group">
+                            <label data-i18n="lbl_hub_phone">Incharge Contact Phone *</label>
+                            <input type="tel" id="hub_phone" class="form-control" placeholder="e.g. 9840998877" required>
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lbl_hub_type">Hub Classification *</label>
+                            <select id="hub_type" class="form-control" required>
+                                <option value="aggregation_depot">Aggregation Depot (Farm Gate Collection)</option>
+                                <option value="cold_storage">Cold Storage Warehouse (Perishables)</option>
+                                <option value="farm_gate_cluster">Direct Farm Gate Aggregator</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_hub_address">Full Address & Landmark *</label>
+                        <textarea id="hub_address" class="form-control" rows="2" placeholder="e.g. NH44, Omalur Bypass, Salem, Tamil Nadu 636001" required></textarea>
+                    </div>
+
+                    <!-- Hub OpenStreetMap GPS Coordinate Picker -->
+                    <div class="form-group">
+                        <div class="gps-action-row mb-1" style="display: flex; justify-content: space-between; align-items: center;">
+                            <label class="mb-0" data-i18n="lbl_hub_gps">📍 Hub GPS Coordinates (Click on OpenStreetMap to pin location):</label>
+                            <button type="button" class="btn btn-xs btn-outline-primary" onclick="LogisticsHook.fetchHubCurrentGps()">
+                                <span>📍</span> Fetch GPS
+                            </button>
+                        </div>
+                        <div id="hubMapPickerContainer" style="height: 200px; width: 100%; border-radius: var(--radius-sm); border: 1px solid #cbd5e1; margin-bottom: 6px;"></div>
+                        <div class="form-row-2">
+                            <div>
+                                <small class="text-muted">Latitude:</small>
+                                <input type="number" step="0.0001" id="hub_lat" class="form-control form-control-sm" placeholder="13.1488" required>
+                            </div>
+                            <div>
+                                <small class="text-muted">Longitude:</small>
+                                <input type="number" step="0.0001" id="hub_lng" class="form-control form-control-sm" placeholder="80.2306" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-light" onclick="LogisticsHook.closeAddHubModal()" data-i18n="btn_cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary font-weight-bold" data-i18n="btn_register_hub">Register Delivery Hub</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Order Verification & Confirmation Modal -->
+    <div id="orderVerificationModal" class="modal-backdrop">
+        <div class="modal-content-card" style="max-width: 680px;">
+            <div class="modal-header">
+                <h3 id="modalVerificationTitle">🔍 Delivery Verification & Handover Audit</h3>
+                <button type="button" class="modal-close-btn" onclick="LogisticsHook.closeVerificationModal()">&times;</button>
+            </div>
+            <form id="orderVerificationForm" onsubmit="event.preventDefault(); LogisticsHook.submitOrderVerification();">
+                <input type="hidden" id="verify_order_id">
+                <input type="hidden" id="verify_action">
+                <input type="hidden" id="verify_expected_order_number">
+
+                <div class="modal-body">
+                    <!-- Target Consignment Overview Box -->
+                    <div class="verification-target-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span class="badge badge-primary font-weight-bold" id="verify_badge_status">VERIFICATION AUDIT</span>
+                            <span class="small font-weight-bold" style="color: #64748b;">Consignment Record</span>
+                        </div>
+                        <h4 id="verify_order_num_display" style="margin-bottom: 4px; color: #0f172a; font-size: 1.15rem;">#ORD-XXXX</h4>
+                        <div class="row-meta" style="font-size: 0.9rem; color: #334155; margin-bottom: 4px;">
+                            <span>📦 Commodity: <strong id="verify_commodity_display">--</strong></span>
+                        </div>
+                        <div class="row-meta" style="font-size: 0.88rem; color: #475569;" id="verify_party_display">
+                            <!-- Farmer or Buyer details loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Mandatory Physical Verification Checklist -->
+                    <div class="form-group mb-3">
+                        <label class="font-weight-bold" style="color: #1e293b; font-size: 0.92rem;">
+                            🛡️ Mandatory Carrier Verification Checklist (Check each item):
+                        </label>
+                        <div class="verification-checklist-box" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: var(--radius-sm); padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+                            <label class="check-item-row" style="display: flex; align-items: center; gap: 10px; font-size: 0.88rem; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="chk_label_match" required checked style="width: 18px; height: 18px;">
+                                <span>1. Consignment Order Number verified against physical package crate label</span>
+                            </label>
+                            <label class="check-item-row" style="display: flex; align-items: center; gap: 10px; font-size: 0.88rem; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="chk_quality_inspect" required checked style="width: 18px; height: 18px;">
+                                <span>2. Produce variety & quality visually inspected (no moisture/spoilage leakage)</span>
+                            </label>
+                            <label class="check-item-row" style="display: flex; align-items: center; gap: 10px; font-size: 0.88rem; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="chk_weight_verify" required checked style="width: 18px; height: 18px;">
+                                <span>3. Scale gross weight verified against declared consignment quantity (kg)</span>
+                            </label>
+                            <label class="check-item-row" style="display: flex; align-items: center; gap: 10px; font-size: 0.88rem; margin: 0; cursor: pointer;">
+                                <input type="checkbox" id="chk_handover_signed" required checked style="width: 18px; height: 18px;">
+                                <span>4. Physical handover acknowledged with registered party (Farmer or Consumer)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Explicit Order Number Verification Input -->
+                    <div class="form-group mb-3">
+                        <label class="font-weight-bold text-danger" style="font-size: 0.9rem;">
+                            ⚠️ Enter / Verify Order Number to Confirm Correct Item: *
+                        </label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="verify_input_order_num" class="form-control font-weight-bold" placeholder="Type or scan #ORD-..." required style="text-transform: uppercase;">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="LogisticsHook.autofillOrderNumber()" style="white-space: nowrap;">
+                                📋 Autofill from Scan
+                            </button>
+                        </div>
+                        <small class="text-muted">Prevents picking up or delivering the wrong consignment crate.</small>
+                    </div>
+
+                    <!-- Carrier Notes -->
+                    <div class="form-group mb-0">
+                        <label class="small font-weight-bold">Carrier / Incharge Inspection Notes (Optional):</label>
+                        <input type="text" id="verify_agent_notes" class="form-control" placeholder="e.g. Crate loaded in refrigerated compartment #2 / Consumer inspected seal">
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <button type="button" class="btn btn-outline-success font-weight-bold" onclick="LogisticsHook.navigateLiveGPSCurrent()">
+                        🧭 Start GPS Navigation (Google Maps)
+                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-outline-light" onclick="LogisticsHook.closeVerificationModal()" data-i18n="btn_cancel">Cancel</button>
+                        <button type="submit" id="btnSubmitVerification" class="btn btn-primary font-weight-bold">
+                            Confirm Verified Action
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/logistics_hook.js"></script>
+    <script src="js/farmer.js"></script>
+    <script src="js/buyer.js"></script>
+    <script src="js/admin.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

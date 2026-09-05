@@ -1,0 +1,2555 @@
+/* ==========================================================================
+   KisanSetu - Design System & Modern Responsive Stylesheet
+   Theme: Agricultural Emerald, Solar Amber, Pure Clean Slates & Glassmorphism
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+    --primary: #15803d;
+    --primary-dark: #166534;
+    --primary-light: #22c55e;
+    --primary-glow: rgba(34, 197, 94, 0.25);
+    
+    --accent: #f59e0b;
+    --accent-dark: #d97706;
+    --accent-glow: rgba(245, 158, 11, 0.25);
+
+    --danger: #ef4444;
+    --info: #0284c7;
+    --dark: #0f172a;
+    --dark-surface: #1e293b;
+    --light-bg: #f8fafc;
+    --card-bg: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-muted: #64748b;
+
+    /* Statuses requested specifically by prompt */
+    --status-yellow: #f59e0b;
+    --status-yellow-bg: #fef3c7;
+    --status-green: #10b981;
+    --status-green-bg: #d1fae5;
+    --status-red: #ef4444;
+    --status-red-bg: #fee2e2;
+
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-full: 9999px;
+
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.12);
+    --shadow-glow: 0 0 20px rgba(34, 197, 94, 0.3);
+
+    --font-heading: 'Outfit', sans-serif;
+    --font-body: 'Plus Jakarta Sans', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-body);
+    background-color: var(--light-bg);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--dark);
+    letter-spacing: -0.02em;
+}
+
+a {
+    text-decoration: none;
+    color: var(--primary);
+    transition: all 0.2s ease;
+}
+
+/* ==========================================================================
+   Navigation & Top Bar
+   ========================================================================== */
+
+.top-announcement-bar {
+    background: linear-gradient(90deg, #14532d, #166534, #1e3a8a);
+    color: #ffffff;
+    font-size: 0.85rem;
+    padding: 6px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.top-bar-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.announcement-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.badge-tag {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.lang-selector-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.lang-select {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+}
+
+.lang-select option {
+    background: var(--dark);
+    color: #ffffff;
+}
+
+.main-header {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: var(--shadow-sm);
+}
+
+.header-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+}
+
+.site-logo-img {
+    height: 54px;
+    max-height: 54px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+    transition: transform 0.2s ease;
+}
+
+.site-logo-img:hover {
+    transform: scale(1.02);
+}
+
+/* Active Portal Indicator (Shown when logged into a role panel) */
+.active-portal-badge {
+    background: #ffffff;
+    border: 1.5px solid var(--border-color);
+    padding: 6px 16px;
+    border-radius: var(--radius-full);
+    font-weight: 700;
+    font-size: 0.92rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: var(--shadow-sm);
+    animation: fadeIn 0.25s ease;
+}
+
+.active-portal-badge.portal-badge-farmer {
+    border-left: 4px solid var(--primary);
+    color: var(--primary-dark);
+}
+
+.active-portal-badge.portal-badge-buyer {
+    border-left: 4px solid var(--info);
+    color: #0369a1;
+}
+
+.active-portal-badge.portal-badge-logistics {
+    border-left: 4px solid #0891b2;
+    color: #0e7490;
+}
+
+.active-portal-badge.portal-badge-admin {
+    border-left: 4px solid #8b5cf6;
+    color: #6d28d9;
+}
+
+.btn-logout {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-logout:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+}
+
+/* ==========================================================================
+   Portal Gateway / Role Selection View
+   ========================================================================== */
+
+.portal-gateway-hero {
+    text-align: center;
+    padding: 32px 20px 24px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.gateway-hero-badge {
+    display: inline-block;
+    background: #ecfdf5;
+    color: var(--primary-dark);
+    border: 1px solid #a7f3d0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: var(--radius-full);
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+}
+
+.gateway-hero-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--dark);
+    margin-bottom: 10px;
+    letter-spacing: -0.5px;
+}
+
+.gateway-hero-subtitle {
+    font-size: 1.05rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.portal-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin: 28px 0 48px;
+}
+
+.portal-card {
+    background: #ffffff;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.portal-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.portal-card-farmer::before { background: linear-gradient(90deg, #15803d, #22c55e); }
+.portal-card-buyer::before { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+.portal-card-logistics::before { background: linear-gradient(90deg, #0891b2, #22d3ee); }
+.portal-card-admin::before { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+
+.portal-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-lg);
+}
+
+.portal-card-farmer:hover { border-color: #86efac; }
+.portal-card-buyer:hover { border-color: #7dd3fc; }
+.portal-card-logistics:hover { border-color: #67e8f9; }
+.portal-card-admin:hover { border-color: #c4b5fd; }
+
+.portal-card-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.portal-card-icon {
+    font-size: 2.4rem;
+    width: 58px;
+    height: 58px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.portal-card-farmer .portal-card-icon { background: #dcfce7; }
+.portal-card-buyer .portal-card-icon { background: #e0f2fe; }
+.portal-card-logistics .portal-card-icon { background: #ecfeff; }
+.portal-card-admin .portal-card-icon { background: #f5f3ff; }
+
+.portal-card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin: 0 0 2px 0;
+}
+
+.portal-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+}
+
+.tag-farmer { background: #dcfce7; color: #166534; }
+.tag-buyer { background: #e0f2fe; color: #075985; }
+.tag-logistics { background: #ecfeff; color: #155e75; }
+.tag-admin { background: #f5f3ff; color: #5b21b6; }
+
+.portal-card-desc {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    flex-grow: 1;
+}
+
+.portal-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+}
+
+.portal-card-action-subrow {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+.btn-buyer {
+    background: #0284c7;
+    color: #ffffff;
+}
+.btn-buyer:hover { background: #0369a1; }
+
+.btn-outline-buyer {
+    border-color: #0284c7;
+    color: #0284c7;
+    background: transparent;
+}
+.btn-outline-buyer:hover { background: #0284c7; color: #ffffff; }
+
+.btn-logistics {
+    background: #0891b2;
+    color: #ffffff;
+}
+.btn-logistics:hover { background: #0e7490; }
+
+.btn-outline-logistics {
+    border-color: #0891b2;
+    color: #0891b2;
+    background: transparent;
+}
+.btn-outline-logistics:hover { background: #0891b2; color: #ffffff; }
+
+.btn-admin {
+    background: #7c3aed;
+    color: #ffffff;
+}
+.btn-admin:hover { background: #6d28d9; }
+
+.btn-ghost {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+.btn-ghost:hover {
+    background: #e2e8f0;
+    color: var(--dark) !important;
+    border-color: #cbd5e1;
+}
+
+.header-auth-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.user-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+}
+
+.user-avatar {
+    font-size: 1.3rem;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.user-details strong {
+    font-size: 0.88rem;
+}
+
+.role-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.role-badge.role-farmer { color: var(--primary); }
+.role-badge.role-buyer { color: var(--info); }
+.role-badge.role-admin { color: #8b5cf6; }
+.role-badge.role-logistics { color: var(--accent-dark); }
+
+/* ==========================================================================
+   Farmer AI Demand & Fair Price Radar
+   ========================================================================== */
+
+.farmer-ai-demand-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1px solid #86efac;
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+}
+
+.farmer-ai-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.farmer-ai-header h3 {
+    font-size: 1.25rem;
+    color: #14532d;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.farmer-ai-selector-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.farmer-ai-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.farmer-ai-box {
+    background: #ffffff;
+    border: 1px solid #bbf7d0;
+    border-radius: var(--radius-md);
+    padding: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.farmer-ai-box .lbl {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.farmer-ai-box .val {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #15803d;
+}
+
+.farmer-ai-box .sub {
+    font-size: 0.75rem;
+    color: #475569;
+}
+
+.farmer-ai-actions-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #dcfce7;
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid #86efac;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.farmer-ai-insight-text {
+    font-size: 0.88rem;
+    color: #14532d;
+}
+
+/* Quick Demo Bar */
+.demo-quick-bar {
+    background: #f1f5f9;
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 24px;
+}
+
+.demo-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.85rem;
+}
+
+.demo-btns {
+    display: flex;
+    gap: 8px;
+}
+
+/* ==========================================================================
+   Section Containers & Tabs
+   ========================================================================== */
+
+.role-section {
+    display: none;
+    max-width: 1400px;
+    margin: 24px auto;
+    padding: 0 20px;
+}
+
+.role-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.portal-subnav {
+    display: flex;
+    gap: 8px;
+    background: #f1f5f9;
+    padding: 6px;
+    border-radius: var(--radius-md);
+    margin-bottom: 24px;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.subnav-btn {
+    background: transparent;
+    border: none;
+    padding: 9px 18px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.subnav-btn:hover {
+    color: var(--dark);
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.subnav-btn.active {
+    color: var(--dark);
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    font-weight: 700;
+}
+
+/* Portal-tailored active highlights */
+.farmer-tab-btn.active {
+    color: #15803d;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(22, 101, 52, 0.12);
+}
+
+.buyer-tab-btn.active {
+    color: #0284c7;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(2, 132, 199, 0.12);
+}
+
+.logistics-subnav-btn.active {
+    color: #0891b2;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(8, 145, 178, 0.12);
+}
+
+.admin-tab-btn.active {
+    color: #7c3aed;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
+}
+
+.farmer-tab-panel, .buyer-tab-panel, .admin-tab-panel, .logistics-subnav-panel {
+    display: none;
+}
+
+.farmer-tab-panel.active, .buyer-tab-panel.active, .admin-tab-panel.active, .logistics-subnav-panel.active {
+    display: block;
+    animation: fadeIn 0.25s ease;
+}
+
+/* ==========================================================================
+   Farmer Module: Add Produce & Slab Pricing
+   ========================================================================== */
+
+.farmer-dashboard-layout {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+@media (max-width: 1024px) {
+    .farmer-dashboard-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.content-card {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
+}
+
+.card-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-title-row h3 {
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Slab Pricing Box */
+.slab-pricing-section {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-top: 16px;
+    margin-bottom: 20px;
+}
+
+.slab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.slab-header h5 {
+    font-size: 0.95rem;
+    color: var(--primary-dark);
+}
+
+.slab-input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr 36px;
+    gap: 8px;
+    align-items: end;
+    margin-bottom: 10px;
+}
+
+.slab-col-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Product Cards Grid */
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.produce-card {
+    background: #ffffff;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.produce-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+}
+
+.produce-img-wrap {
+    height: 180px;
+    position: relative;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.produce-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.grade-tag {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    backdrop-filter: blur(4px);
+}
+
+.grade-export { background: #d97706; }
+.grade-grade-a { background: #059669; }
+
+.category-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--dark);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+}
+
+.produce-content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.crop-title {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+}
+
+.variety-sub {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.produce-desc {
+    font-size: 0.82rem;
+    color: #475569;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.stock-pill {
+    font-size: 0.85rem;
+    background: #ecfdf5;
+    color: var(--primary-dark);
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    display: inline-block;
+    margin-bottom: 12px;
+}
+
+.slab-pills-box {
+    background: #f8fafc;
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    margin-bottom: 14px;
+}
+
+.slab-badge-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.slab-pills-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.slab-chip {
+    font-size: 0.78rem;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.card-footer-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.date-tag {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Order Lifecycle & Status Badges (CRITICAL COLORING)
+   ========================================================================== */
+
+/* Yellow Delivered Status with Timer */
+.badge-delivered-yellow {
+    background-color: var(--status-yellow-bg);
+    color: #92400e;
+    border: 1px solid #fcd34d;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    animation: pulseSubtle 2.5s infinite;
+}
+
+@keyframes pulseSubtle {
+    0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+/* Green Completed Status (7 Days Elapsed & Verified) */
+.badge-delivered-green {
+    background-color: var(--status-green-bg);
+    color: #065f46;
+    border: 1px solid #6ee7b7;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Red Return Status */
+.badge-returned-red {
+    background-color: var(--status-red-bg);
+    color: var(--status-red);
+    border: 1px solid #fca5a5;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 800; /* Bold Red font */
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.badge-ordered {
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 5px 10px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-pickup {
+    background: #e0f2fe;
+    color: #0369a1;
+    padding: 5px 10px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-shipped {
+    background: #ede9fe;
+    color: #6d28d9;
+    padding: 5px 10px;
+    border-radius: var(--radius-full);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Tables */
+.table-responsive {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    background: #ffffff;
+}
+
+.kisansetu-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.9rem;
+}
+
+.kisansetu-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+    padding: 14px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.kisansetu-table td {
+    padding: 14px 18px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+    color: #1e293b;
+}
+
+.kisansetu-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.kisansetu-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.kisansetu-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.btn-group-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   Buyer Module: Proximity & Dynamic Slab Shopping
+   ========================================================================== */
+
+.buyer-filter-bar {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 18px 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+}
+
+.filter-bar-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 16px;
+    align-items: end;
+}
+
+@media (max-width: 768px) {
+    .filter-bar-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.buyer-product-card {
+    background: #ffffff;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.buyer-product-card.prox-local {
+    border: 2px solid #22c55e;
+}
+
+.buyer-product-card.prox-neighbor {
+    border: 2px solid #38bdf8;
+}
+
+.buyer-product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.buyer-img-box {
+    height: 190px;
+    position: relative;
+    overflow: hidden;
+}
+
+.buyer-img-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.proximity-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    backdrop-filter: blur(6px);
+}
+
+.proximity-badge.prox-local {
+    background: rgba(34, 197, 94, 0.95);
+    color: #ffffff;
+}
+
+.proximity-badge.prox-neighbor {
+    background: rgba(14, 165, 233, 0.95);
+    color: #ffffff;
+}
+
+.proximity-badge.prox-national {
+    background: rgba(100, 116, 139, 0.9);
+    color: #ffffff;
+}
+
+.grade-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.buyer-card-body {
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.crop-header {
+    margin-bottom: 8px;
+}
+
+.farmer-name {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    display: block;
+}
+
+.variety-row {
+    font-size: 0.82rem;
+    color: #475569;
+    margin-bottom: 12px;
+}
+
+.dynamic-price-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.price-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.slab-price-val {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+}
+
+.active-slab-note {
+    font-size: 0.72rem;
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.total-amount {
+    font-size: 1.2rem;
+    color: var(--dark);
+}
+
+.slab-chips-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.mini-slab-chip {
+    font-size: 0.7rem;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--text-muted);
+}
+
+.mini-slab-chip.chip-active {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #15803d;
+    font-weight: 700;
+}
+
+.btn-buy-direct {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #ffffff;
+    border: none;
+    padding: 10px;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: auto;
+}
+
+.btn-buy-direct:hover {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    box-shadow: var(--shadow-glow);
+}
+
+/* ==========================================================================
+   Support, Grievances & Ministry Oversight
+   ========================================================================== */
+
+.support-split-layout {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 24px;
+}
+
+@media (max-width: 992px) {
+    .support-split-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ticket-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.ticket-resolved {
+    border-left: 4px solid var(--primary);
+}
+
+.ticket-pending {
+    border-left: 4px solid var(--accent);
+}
+
+.ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+}
+
+.status-resolved { background: #dcfce7; color: #166534; }
+.status-pending-review { background: #fef3c7; color: #b45309; }
+
+.ticket-desc {
+    font-size: 0.88rem;
+    color: #334155;
+    margin-bottom: 8px;
+}
+
+.ticket-resolution-expect {
+    background: #f1f5f9;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    color: #1e293b;
+    margin-bottom: 10px;
+}
+
+.ministry-resolution-box {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-top: 10px;
+}
+
+.ministry-badge {
+    font-weight: 700;
+    color: #065f46;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+}
+
+.resolved-date {
+    font-size: 0.72rem;
+    color: #047857;
+    display: block;
+    margin-top: 4px;
+}
+
+/* ==========================================================================
+   AI Demand Engine & Ministry Analytics
+   ========================================================================== */
+
+.ai-forecast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+}
+
+.forecast-box {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px;
+}
+
+.forecast-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.forecast-val {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--dark);
+    margin-bottom: 4px;
+}
+
+.ai-insight-strip {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+    font-size: 0.88rem;
+    color: #166534;
+}
+
+/* ==========================================================================
+   Interactive Map & GPS Picker Styles
+   ========================================================================== */
+
+.map-picker-container {
+    height: 240px;
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid #cbd5e1;
+    margin-top: 10px;
+    margin-bottom: 8px;
+    z-index: 10;
+}
+
+.gps-action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.map-location-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: #f1f5f9;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Modals & Dialogs
+   ========================================================================== */
+
+.modal-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-backdrop.active {
+    display: flex;
+    animation: modalPop 0.2s ease;
+}
+
+@keyframes modalPop {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.modal-content-card {
+    background: #ffffff;
+    border-radius: var(--radius-lg);
+    width: 100%;
+    max-width: 580px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+}
+
+.modal-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: #f8fafc;
+}
+
+/* Forms */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #334155;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.form-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #ffffff;
+}
+.btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+.btn-primary-accent {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #ffffff;
+}
+
+.btn-outline-light {
+    border-color: #cbd5e1;
+    background: transparent;
+    color: var(--dark);
+}
+.btn-outline-light:hover {
+    background: #f1f5f9;
+}
+
+.btn-outline-primary {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: transparent;
+}
+.btn-outline-primary:hover {
+    background: var(--primary);
+    color: #ffffff;
+}
+
+.btn-outline-danger {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: transparent;
+}
+.btn-outline-danger:hover {
+    background: var(--danger);
+    color: #ffffff;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+}
+
+.btn-xs {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+/* Toast Notifications */
+#toastContainer {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast-message {
+    background: var(--dark);
+    color: #ffffff;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+    animation: toastSlideIn 0.25s ease;
+}
+
+@keyframes toastSlideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.toast-message.fade-out {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-success { border-left: 4px solid var(--primary-light); }
+.toast-error { border-left: 4px solid var(--danger); }
+.toast-warning { border-left: 4px solid var(--accent); }
+.toast-info { border-left: 4px solid var(--info); }
+
+/* Tracking Custom Modal UI */
+.tracking-steps-container {
+    margin: 20px 0;
+    border-left: 2px solid #cbd5e1;
+    padding-left: 20px;
+    margin-left: 10px;
+}
+
+.tracking-step-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.step-dot {
+    position: absolute;
+    left: -27px;
+    top: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #94a3b8;
+    border: 2px solid #ffffff;
+}
+
+.step-completed .step-dot {
+    background: var(--primary);
+}
+
+.step-active .step-dot {
+    background: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.step-title {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--dark);
+}
+
+.step-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.logistics-extensibility-box {
+    background: #f8fafc;
+    border: 1px dashed #94a3b8;
+    border-radius: var(--radius-md);
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.82rem;
+}
+
+/* ==========================================================================
+   AI Route Optimization & Leaflet Logistics Map Styles
+   ========================================================================== */
+.logistics-ai-card {
+    border: 1px solid rgba(2, 132, 199, 0.2);
+    box-shadow: 0 8px 24px rgba(2, 132, 199, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.logistics-ai-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #0284c7, #10b981, #f59e0b);
+}
+
+.ai-badge-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.logistics-controls-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.logistics-controls-bar .controls-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 280px;
+}
+
+.route-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.route-metric-box {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.route-metric-box:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.route-metric-box.metric-accent {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.route-metric-box .metric-icon {
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.route-metric-box .metric-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.route-metric-box .metric-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.route-metric-box .metric-value {
+    font-size: 1.25rem;
+    font-family: var(--font-heading);
+    color: var(--dark);
+    line-height: 1.2;
+    margin: 2px 0;
+}
+
+.route-metric-box .metric-sub {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* Map Workspace: 2-Column Split */
+.logistics-map-workspace {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 18px;
+    margin-top: 10px;
+}
+
+@media (max-width: 1024px) {
+    .logistics-map-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+.logistics-map-panel {
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.map-header-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.map-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    color: #0369a1;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+    animation: pulseDot 1.8s infinite;
+}
+
+@keyframes pulseDot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+.map-legend-items {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.legend-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.75rem;
+    color: var(--text-primary);
+}
+
+.legend-color-box {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.legend-color-box.bg-depot { background: #0284c7; }
+.legend-color-box.bg-hub { background: #10b981; }
+.legend-color-box.bg-delivery { background: #f97316; }
+
+.legend-line {
+    width: 16px;
+    height: 4px;
+    border-radius: 2px;
+    display: inline-block;
+}
+
+.legend-line.line-green { background: #10b981; }
+.legend-line.line-amber { background: #f59e0b; }
+.legend-line.line-red { background: #ef4444; }
+
+.logistics-leaflet-container {
+    width: 100%;
+    height: 490px;
+    min-height: 440px;
+    background: #e2e8f0;
+    z-index: 1;
+}
+
+/* Map Markers and Popups */
+.route-marker-pin {
+    width: 34px;
+    height: 34px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+    border: 2px solid #ffffff;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.route-marker-pin:hover {
+    transform: rotate(-45deg) scale(1.15);
+}
+
+.route-marker-pin .marker-text {
+    transform: rotate(45deg);
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+}
+
+.route-marker-pin.marker-depot { background: #0284c7; }
+.route-marker-pin.marker-hub { background: #10b981; }
+.route-marker-pin.marker-delivery { background: #f97316; }
+
+.leaflet-route-popup {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    min-width: 220px;
+}
+
+.leaflet-route-popup .popup-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 6px;
+}
+
+.leaflet-route-popup .popup-badge.marker-depot { background: #0284c7; }
+.leaflet-route-popup .popup-badge.marker-hub { background: #10b981; }
+.leaflet-route-popup .popup-badge.marker-delivery { background: #f97316; }
+
+.leaflet-route-popup .popup-title {
+    font-size: 0.95rem;
+    margin: 0 0 6px 0;
+    font-family: var(--font-heading);
+    color: var(--dark);
+}
+
+.leaflet-route-popup .popup-cargo {
+    background: #f8fafc;
+    border-left: 3px solid var(--primary);
+    padding: 4px 8px;
+    border-radius: 3px;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+}
+
+.leaflet-route-popup .popup-meta-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.leaflet-route-popup .popup-traffic {
+    font-size: 0.8rem;
+    border-top: 1px dashed var(--border-color);
+    padding-top: 6px;
+    margin-top: 6px;
+}
+
+/* Right: Sequenced Itinerary Panel */
+.logistics-itinerary-panel {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: 540px;
+}
+
+.itinerary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.itinerary-header h4 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-family: var(--font-heading);
+    color: var(--dark);
+}
+
+.itinerary-list {
+    overflow-y: auto;
+    padding-right: 6px;
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.itinerary-phase-header {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: #e0f2fe;
+    color: #0369a1;
+    margin: 6px 0 2px 0;
+}
+
+.itinerary-phase-header.phase-hub {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.itinerary-phase-header.phase-del {
+    background: #ffedd5;
+    color: #c2410c;
+}
+
+.itinerary-card-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px;
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.itinerary-card-item:hover {
+    background: #ffffff;
+    border-color: #0284c7;
+    box-shadow: var(--shadow-sm);
+    transform: translateX(3px);
+}
+
+.itinerary-step-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.itinerary-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    color: #ffffff;
+    white-space: nowrap;
+}
+
+.itinerary-badge.badge-depot { background: #0284c7; }
+.itinerary-badge.badge-hub { background: #10b981; }
+.itinerary-badge.badge-delivery { background: #f97316; }
+
+.itinerary-step-body {
+    flex: 1;
+}
+
+.itinerary-stop-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--dark);
+    margin-bottom: 2px;
+}
+
+.itinerary-cargo-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.itinerary-stop-metrics {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 0.74rem;
+}
+
+.traffic-tag {
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+}
+
+/* Responsive adjustments for header and portal gateway */
+@media (max-width: 900px) {
+    .header-container {
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        text-align: center;
+    }
+
+    .active-portal-badge {
+        margin: 4px 0;
+    }
+
+    .portal-cards-grid {
+        grid-template-columns: 1fr;
+        padding: 0 10px;
+    }
+
+    .gateway-hero-title {
+        font-size: 1.75rem;
+    }
+}
+
+/* ==========================================================================
+   OPENSTREETMAP DELIVERY NAVIGATION & ROUTE OPTIMIZATION STYLES
+   ========================================================================== */
+
+.osm-navigation-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: #f1f5f9;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.osm-search-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 280px;
+}
+
+.osm-search-icon {
+    font-size: 1.15rem;
+}
+
+.osm-search-input {
+    flex: 1;
+    padding: 7px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    outline: none;
+    background: #ffffff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.osm-search-input:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.osm-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Pulsing OpenStreetMap Delivery Beacon */
+.beacon-marker-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.delivery-beacon-marker {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.beacon-pulse {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.35);
+    animation: beacon-pulse 1.8s infinite ease-out;
+    pointer-events: none;
+}
+
+.beacon-pin {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ef4444;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+    border: 2px solid #ffffff;
+    z-index: 2;
+}
+
+@keyframes beacon-pulse {
+    0% {
+        transform: scale(0.6);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.6);
+        opacity: 0;
+    }
+}
+
+/* OpenStreetMap Links */
+.osm-ext-nav-link {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s;
+}
+
+.osm-ext-nav-link:hover {
+    text-decoration: underline;
+    color: #0369a1 !important;
+}
+
+.osm-itinerary-link {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(2, 132, 199, 0.08);
+    transition: all 0.15s;
+}
+
+.osm-itinerary-link:hover {
+    background: rgba(2, 132, 199, 0.18);
+    text-decoration: underline;
+}
+
+/* Tracking Modal OpenStreetMap Container */
+.osm-modal-map-wrapper {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.osm-modal-map {
+    width: 100%;
+    min-height: 240px;
+    z-index: 10;
+}
+
+/* ==========================================================================
+   LOGISTICS HUB DISPATCH, PROXIMITY PICKUPS & VERIFICATION STYLES
+   ========================================================================== */
+
+.hub-dispatch-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-md);
+}
+
+.hub-selector-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    margin-top: 12px;
+}
+
+.hub-info-badge-card {
+    flex: 1;
+    min-width: 320px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.hub-info-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.hub-type-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.hub-code-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.hub-title-text {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 4px 0 8px 0;
+}
+
+.hub-meta-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.82rem;
+    color: #475569;
+}
+
+/* Logistics Operations Tabs */
+.logistics-tabs-nav {
+    display: flex;
+    gap: 10px;
+    border-bottom: 2px solid #e2e8f0;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.logistics-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.logistics-tab-btn:hover {
+    background: #ffffff;
+    color: #0284c7;
+}
+
+.logistics-tab-btn.active {
+    background: #ffffff;
+    color: #0284c7;
+    border-color: #0284c7 #0284c7 #ffffff #0284c7;
+    border-top: 3px solid #0284c7;
+    font-weight: 700;
+    box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.tab-counter-badge {
+    background: #e2e8f0;
+    color: #0f172a;
+    font-size: 0.75rem;
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    font-weight: 700;
+}
+
+.logistics-tab-btn.active .tab-counter-badge {
+    background: #0284c7;
+    color: #ffffff;
+}
+
+.proximity-banner {
+    background: #f0fdf4;
+    border-left: 4px solid #16a34a;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    color: #166534;
+}
+
+.multihub-banner {
+    background: #eff6ff;
+    border-left: 4px solid #2563eb;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.88rem;
+    color: #1e40af;
+}
+
+.multihub-chain-pill {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    color: #334155;
+}
+
+/* Verification Checklist and Modal */
+.verification-checklist-box {
+    background: #f8fafc;
+}
+
+.check-item-row:hover {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+/* Admin State & District Directory & Activity Monitor */
+.admin-directory-controls {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-bottom: 18px;
+    box-shadow: var(--shadow-sm);
+}
+
+.directory-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.directory-role-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.dir-role-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-full);
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.dir-role-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.dir-role-btn.active {
+    background: #166534;
+    color: #ffffff;
+    border-color: #166534;
+}
+
+.dir-role-btn.active .dir-role-count {
+    background: #ffffff;
+    color: #166534;
+}
+
+.dir-role-count {
+    font-size: 0.75rem;
+    background: #e2e8f0;
+    color: #334155;
+    padding: 1px 7px;
+    border-radius: 10px;
+}
+
+.directory-inputs-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+    align-items: center;
+}
+
+.dir-select-wrap {
+    flex: 1;
+    min-width: 170px;
+}
+
+.dir-search-wrap {
+    flex: 2;
+    min-width: 220px;
+}
+
+.activity-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.82rem;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+    font-weight: 600;
+}
+
+.activity-badge-pill.buyer-pill {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.activity-badge-pill.logistics-pill {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+}
+
+.admin-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.admin-kpi-card {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.admin-kpi-icon {
+    font-size: 1.8rem;
+}
+
+.admin-kpi-label {
+    font-size: 0.78rem;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.admin-kpi-val {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+}
