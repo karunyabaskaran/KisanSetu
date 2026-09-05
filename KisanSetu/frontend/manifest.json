@@ -1,26 +1,12 @@
 {
-  "name": "KisanSetu - Direct Farmer Market",
+  "background_color": "#ffffff",
+  "description": "KisanSetu connects farmers and FPOs directly with retail consumers and bulk buyers with tiered slab pricing, GPS mapping, 22 regional Indian languages, and logistics support.",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "KisanSetu",
+  "orientation": "any",
+  "scope": "/",
   "short_name": "KisanSetu",
   "start_url": "/",
-  "id": "/",
-  "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#0f172a",
-  "theme_color": "#16a34a",
-  "description": "Direct Farmer-to-Consumer & Bulk Buyer Marketplace with Connected Logistics and Fair Pricing",
-  "icons": [
-    {
-      "src": "/images/logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/images/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "categories": ["business", "shopping", "productivity"]
+  "theme_color": "#ffffff"
 }
