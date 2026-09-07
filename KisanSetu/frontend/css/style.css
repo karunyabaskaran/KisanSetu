@@ -100,7 +100,23 @@ a {
 .announcement-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+}
+
+.gov-emblem-icon {
+    height: 22px;
+    width: auto;
+    filter: brightness(0) invert(1);
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.gov-title-text {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #ffffff;
 }
 
 .badge-tag {
@@ -145,7 +161,7 @@ a {
 .header-container {
     max-width: 1400px;
     margin: 0 auto;
-    padding: 14px 24px;
+    padding: 10px 24px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -159,12 +175,12 @@ a {
 }
 
 .site-logo-img {
-    height: 54px;
-    max-height: 54px;
+    height: 76px;
+    max-height: 76px;
     width: auto;
     object-fit: contain;
     display: block;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.05));
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
     transition: transform 0.2s ease;
 }
 
@@ -262,7 +278,35 @@ a {
 .gateway-hero-subtitle {
     font-size: 1.05rem;
     color: var(--text-muted);
-    line-height: 1.5;
+    line-height: 1.6;
+}
+
+.gateway-feature-pills {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.gateway-feature-pills .feat-pill {
+    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #15803d;
+    letter-spacing: 0.25px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gateway-feature-pills .feat-divider {
+    color: #16a34a;
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1;
+    user-select: none;
 }
 
 .portal-cards-grid {
@@ -378,6 +422,22 @@ a {
 .flex-1 {
     flex: 1;
 }
+
+.btn-outline-farmer {
+    border: 1px solid transparent !important;
+    border-color: transparent !important;
+    color: var(--primary);
+    background: transparent;
+}
+.btn-outline-farmer:hover { background: #f0fdf4; color: var(--primary-dark); }
+
+.portal-card-actions .btn-outline-primary {
+    border: 1px solid transparent !important;
+    border-color: transparent !important;
+    color: var(--primary);
+    background: transparent;
+}
+.portal-card-actions .btn-outline-primary:hover { background: #f0fdf4; color: var(--primary-dark); }
 
 .btn-buyer {
     background: #0284c7;
@@ -1487,6 +1547,97 @@ a {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+/* Static Non-Editable Role Indicator */
+.static-role-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid #cbd5e1;
+    background: #f8fafc;
+    user-select: none;
+    cursor: default;
+    transition: all 0.2s ease;
+}
+
+.static-role-icon {
+    font-size: 1.6rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.static-role-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.static-role-info strong {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--dark);
+    line-height: 1.25;
+}
+
+.static-role-subtitle {
+    font-size: 0.76rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.static-role-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+}
+
+/* Role Theme Accents */
+.static-role-field.static-role-farmer {
+    background: #f0fdf4;
+    border-color: #86efac;
+}
+.static-role-field.static-role-farmer .static-role-badge {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.static-role-field.static-role-buyer {
+    background: #f0f9ff;
+    border-color: #7dd3fc;
+}
+.static-role-field.static-role-buyer .static-role-badge {
+    background: #e0f2fe;
+    color: #0284c7;
+    border: 1px solid #bae6fd;
+}
+
+.static-role-field.static-role-logistics {
+    background: #ecfeff;
+    border-color: #67e8f9;
+}
+.static-role-field.static-role-logistics .static-role-badge {
+    background: #cffafe;
+    color: #0891b2;
+    border: 1px solid #a5f3fc;
+}
+
+.static-role-field.static-role-admin {
+    background: #faf5ff;
+    border-color: #d8b4fe;
+}
+.static-role-field.static-role-admin .static-role-badge {
+    background: #f3e8ff;
+    color: #7c3aed;
+    border: 1px solid #e9d5ff;
 }
 
 .form-row-2 {

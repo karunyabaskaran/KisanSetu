@@ -66,6 +66,7 @@ const SUPPORTED_LANGUAGES = [
 
 const TRANSLATIONS = {
     en: {
+        gov_title: "Government of India",
         gov_aligned: "GOVERNMENT OF INDIA ALIGNED",
         eliminated_brokerage: "0% Intermediary Cuts • Direct Farmer Payout",
         lang_label: "🌐 Language / भाषा:",
@@ -336,9 +337,9 @@ const TRANSLATIONS = {
         btn_apply_ai_slabs: "✨ Apply AI Recommended Slabs to Form",
         loading_ai_demand: "Consulting KisanSetu AI Demand Engine...",
         ai_error_hint: "AI model active. Select a crop to view recommendations.",
-        portal_hero_badge: "🇮🇳 National Unified Agri-Commerce Platform",
-        portal_hero_title: "Select Your Dedicated Portal",
-        portal_hero_subtitle: "Access your specialized dashboard. To switch to another panel, please log out from your active session first.",
+        portal_hero_badge: "National Unified Agri-Commerce Platform",
+        portal_hero_title: "Select Your Portal",
+        portal_hero_subtitle: "Access your specialized dashboard.<br>To switch to another panel, please log out from your active session first.",
         portal_tag_farmer: "Producers & Cultivators",
         portal_tag_buyer: "Retail & Bulk Procurement",
         portal_tag_logistics: "Fleet & Cold Chain",
@@ -384,6 +385,7 @@ const TRANSLATIONS = {
         th_status: "Status"
     },
     ta: {
+        gov_title: "இந்திய அரசு",
         gov_aligned: "இந்திய அரசு வழிகாட்டுதலின்படி செயல்படுகிறது",
         eliminated_brokerage: "0% இடைத்தரகர் பிடித்தம் • விவசாயிகளுக்கு நேரடி வருமானம்",
         lang_label: "🌐 மொழி / Language:",
@@ -654,9 +656,9 @@ const TRANSLATIONS = {
         btn_apply_ai_slabs: "✨ பரிந்துரைக்கப்பட்ட AI அடுக்கு விலையை படிவத்தில் சேர்க்கவும்",
         loading_ai_demand: "கிசான்சேது AI தேவை கணிப்பு இயந்திரத்தை அணுகுகிறது...",
         ai_error_hint: "AI மாதிரி செயலில் உள்ளது. பரிந்துரைகளைக் காண பயிரைத் தேர்ந்தெடுக்கவும்.",
-        portal_hero_badge: "🇮🇳 தேசிய ஒருங்கிணைந்த வேளாண் வணிகத் தளம்",
-        portal_hero_title: "உங்கள் பிரத்யேக போர்ட்டலைத் தேர்ந்தெடுக்கவும்",
-        portal_hero_subtitle: "உங்கள் சிறப்பு டாஷ்போர்டை அணுகவும். வேறு பேனலுக்கு மாற, முதலில் உங்கள் செயலில் உள்ள அமர்விலிருந்து வெளியேறவும் (Logout).",
+        portal_hero_badge: "தேசிய ஒருங்கிணைந்த வேளாண் வணிகத் தளம்",
+        portal_hero_title: "உங்கள் போர்ட்டலைத் தேர்ந்தெடுக்கவும்",
+        portal_hero_subtitle: "உங்கள் சிறப்பு டாஷ்போர்டை அணுகவும்.<br>வேறு பேனலுக்கு மாற, முதலில் உங்கள் செயலில் உள்ள அமர்விலிருந்து வெளியேறவும் (Logout).",
         portal_tag_farmer: "உற்பத்தியாளர்கள் & விவசாயிகள்",
         portal_tag_buyer: "சில்லறை & மொத்த கொள்முதல்",
         portal_tag_logistics: "வாகனப் போக்குவரத்து & குளிர்சங்கிலி",
@@ -702,6 +704,7 @@ const TRANSLATIONS = {
         th_status: "நிலை"
     },
     hi: {
+        gov_title: "भारत सरकार",
         gov_aligned: "भारत सरकार के दिशानिर्देशों के अनुरूप",
         eliminated_brokerage: "0% बिचौलियों का कमीशन • किसान को सीधा पूरा भुगतान",
         lang_label: "🌐 भाषा / Language:",
@@ -965,9 +968,9 @@ const TRANSLATIONS = {
         btn_apply_ai_slabs: "✨ फॉर्म में एआई अनुशंसित स्लैब लागू करें",
         loading_ai_demand: "किसानसेतु एआई मांग इंजन से परामर्श कर रहा है...",
         ai_error_hint: "एआई मॉडल सक्रिय है। सिफारिशें देखने के लिए एक फसल चुनें।",
-        portal_hero_badge: "🇮🇳 राष्ट्रीय एकीकृत कृषि-वाणिज्य मंच",
-        portal_hero_title: "अपना समर्पित पोर्टल चुनें",
-        portal_hero_subtitle: "अपने समर्पित डैशबोर्ड तक पहुंचें। किसी अन्य पैनल पर जाने के लिए, पहले अपने सक्रिय सत्र से लॉग आउट करें।",
+        portal_hero_badge: "राष्ट्रीय एकीकृत कृषि-वाणिज्य मंच",
+        portal_hero_title: "अपना पोर्टल चुनें",
+        portal_hero_subtitle: "अपने समर्पित डैशबोर्ड तक पहुंचें।<br>किसी अन्य पैनल पर जाने के लिए, पहले अपने सक्रिय सत्र से लॉग आउट करें।",
         portal_tag_farmer: "उत्पादक और किसान",
         portal_tag_buyer: "खुदरा और थोक खरीद",
         portal_tag_logistics: "बेड़ा और कोल्ड चेन",
@@ -1139,7 +1142,11 @@ class I18nService {
             const key = el.getAttribute("data-i18n");
             const translation = this.t(key);
             if (translation) {
-                el.textContent = translation;
+                if (translation.includes("<br")) {
+                    el.innerHTML = translation;
+                } else {
+                    el.textContent = translation;
+                }
             }
         });
 

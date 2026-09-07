@@ -48,8 +48,8 @@
     <div class="top-announcement-bar">
         <div class="top-bar-inner">
             <div class="announcement-left">
-                <span class="badge-tag" data-i18n="gov_aligned">GOVERNMENT OF INDIA ALIGNED</span>
-                <span data-i18n="eliminated_brokerage">0% Intermediary Cuts • Direct Farmer Payout</span>
+                <img src="images/emblem_india.svg" alt="Emblem of India" class="gov-emblem-icon">
+                <span class="gov-title-text" data-i18n="gov_title">Government of India</span>
             </div>
             <div class="lang-selector-wrap">
                 <span data-i18n="lang_label">🌐 Language / भाषा:</span>
@@ -86,16 +86,13 @@
          ==================================================================== -->
     <main id="section_portal_select" class="role-section active">
         <div class="portal-gateway-hero">
-            <div class="gateway-hero-badge" data-i18n="portal_hero_badge">🇮🇳 National Direct Agri-Commerce Platform</div>
-            <h1 class="gateway-hero-title" data-i18n="portal_hero_title">Select Your Dedicated Portal</h1>
-            <p class="gateway-hero-subtitle" data-i18n="portal_hero_subtitle">
-                A simple and transparent digital bridge connecting farmers, buyers, logistics partners, and government support.
-            </p>
+            <div class="gateway-hero-badge" data-i18n="portal_hero_badge">National Unified Agri-Commerce Platform</div>
+            <h1 class="gateway-hero-title" data-i18n="portal_hero_title">Select Your Portal</h1>
+            <p class="gateway-hero-subtitle" data-i18n="portal_hero_subtitle">Access your specialized dashboard.<br>To switch to another panel, please log out from your active session first.</p>
             <div class="gateway-feature-pills">
                 <span class="feat-pill">🌱 0% Middlemen Fees</span>
-                <span class="feat-pill">⚖️ Fair Price Guidance</span>
-                <span class="feat-pill">🚚 Direct Hub Logistics</span>
-                <span class="feat-pill">🛡️ 7-Day Inspection Protection</span>
+                <span class="feat-divider">•</span>
+                <span class="feat-pill">⚖️ Fair Price on both the ends</span>
             </div>
         </div>
 
@@ -116,7 +113,7 @@
                     <button class="btn btn-primary w-100" onclick="showLoginModal('farmer')" data-i18n="btn_signin_farmer">
                         🔑 Sign In as Farmer
                     </button>
-                    <button class="btn btn-outline-primary w-100" onclick="showRegisterModal('farmer')" data-i18n="btn_register_farmer">
+                    <button class="btn btn-outline-farmer w-100" onclick="showRegisterModal('farmer')" data-i18n="btn_register_farmer">
                         📝 Register as Farmer
                     </button>
                 </div>
@@ -1211,13 +1208,16 @@
             <form id="loginForm">
                 <div class="modal-body">
                     <div class="form-group">
-                        <label data-i18n="lbl_login_role">Login As Role *</label>
-                        <select id="login_role_select" class="form-control" required>
-                            <option value="farmer" data-i18n="role_farmer">1.) Farmer / FPO</option>
-                            <option value="buyer" data-i18n="role_buyer">2.) Buyer / Bulk Buyer</option>
-                            <option value="logistics" data-i18n="role_logistics">3.) Logistics Partner</option>
-                            <option value="admin" data-i18n="role_admin">4.) Admin (Ministry)</option>
-                        </select>
+                        <label data-i18n="lbl_login_role">Login As Role</label>
+                        <div class="static-role-field static-role-farmer" id="login_role_static_field">
+                            <span class="static-role-icon" id="login_role_static_icon">👨‍🌾</span>
+                            <div class="static-role-info">
+                                <strong id="login_role_static_title" data-i18n="role_farmer">Farmer / FPO</strong>
+                                <span class="static-role-subtitle">Selected Portal Access</span>
+                            </div>
+                            <span class="static-role-badge" id="login_role_static_badge">Farmer Portal</span>
+                        </div>
+                        <input type="hidden" id="login_role_select" value="farmer">
                     </div>
                     <div class="form-group">
                         <label data-i18n="lbl_mobile">Mobile Number *</label>

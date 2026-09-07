@@ -90,10 +90,7 @@ function updateUserDisplay() {
             </button>
         `;
     } else {
-        authBox.innerHTML = `
-            <button class="btn btn-sm btn-outline-light mr-2" onclick="showLoginModal()" data-i18n="login_btn">${i18n.t("login_btn")}</button>
-            <button class="btn btn-sm btn-primary-accent" onclick="showRegisterModal()" data-i18n="register_btn">${i18n.t("register_btn")}</button>
-        `;
+        authBox.innerHTML = "";
     }
 }
 
@@ -397,15 +394,58 @@ window.quickDemoLogin = async function(role) {
     }
 };
 
-window.showLoginModal = function(role) {
+window.showLoginModal = function(role = "farmer") {
     if (api.currentUser) {
         showToast(`You are already logged into the ${api.currentUser.role.toUpperCase()} panel. To login to another panel, first logout from the already logged in panel.`, "warning");
         return;
     }
-    const select = document.getElementById("login_role_select");
-    if (select && role) {
-        select.value = role;
+    const roleMeta = {
+        farmer: {
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_farmer") : "Farmer / FPO",
+            icon: "👨‍🌾",
+            badge: "Farmer Portal",
+            colorClass: "static-role-farmer"
+        },
+        buyer: {
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_buyer") : "Buyer / Consumer",
+            icon: "🛒",
+            badge: "Buyer Portal",
+            colorClass: "static-role-buyer"
+        },
+        logistics: {
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_logistics") : "Logistics Partner",
+            icon: "🚛",
+            badge: "Logistics Portal",
+            colorClass: "static-role-logistics"
+        },
+        admin: {
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_admin") : "Ministry (Admin)",
+            icon: "🏛️",
+            badge: "Ministry Portal",
+            colorClass: "static-role-admin"
+        }
+    };
+
+    const meta = roleMeta[role] || roleMeta.farmer;
+    const hiddenInput = document.getElementById("login_role_select");
+    if (hiddenInput) {
+        hiddenInput.value = role;
     }
+
+    const iconEl = document.getElementById("login_role_static_icon");
+    if (iconEl) iconEl.textContent = meta.icon;
+
+    const titleEl = document.getElementById("login_role_static_title");
+    if (titleEl) titleEl.textContent = meta.title;
+
+    const badgeEl = document.getElementById("login_role_static_badge");
+    if (badgeEl) badgeEl.textContent = meta.badge;
+
+    const boxEl = document.getElementById("login_role_static_field");
+    if (boxEl) {
+        boxEl.className = `static-role-field ${meta.colorClass}`;
+    }
+
     const modal = document.getElementById("loginModal");
     if (modal) modal.classList.add("active");
 };
