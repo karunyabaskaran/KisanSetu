@@ -3,9 +3,12 @@ services:
     name: kisansetu
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --threads 2
+    startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: PYTHONUNBUFFERED
+        value: "1"
       - key: FIREBASE_CREDENTIALS
         sync: false
+

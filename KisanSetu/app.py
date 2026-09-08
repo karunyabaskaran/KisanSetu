@@ -87,6 +87,8 @@ try:
     init_firebase()
 except Exception as _e:
     pass
+print("--> [KisanSetu Application] Initialized successfully and ready to serve requests.", flush=True)
+
 
 if __name__ == "__main__":
     print("\n=======================================================")
