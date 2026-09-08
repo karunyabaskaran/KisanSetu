@@ -178,7 +178,10 @@ const LogisticsHook = {
             if (bDrops) bDrops.innerText = routeDeliveries.length;
             if (bAll) bAll.innerText = allConsignments.length;
 
-            // 6. Render Near Pickups Table (Available & Assigned)
+            // 6. Render Buyer-Grouped Consignments (Requirement 8)
+            this.renderBuyerGroupedPickups(opsRes.buyer_grouped_pickups || []);
+
+            // 7. Render Near Pickups Table (Available & Assigned)
             this.renderNearPickupsTable(nearPickups, activeHub);
 
             // 7. Render Route Deliveries Table (Hub-to-Hub & Consumer Nearby Hub Distribution)
@@ -245,6 +248,144 @@ const LogisticsHook = {
         } catch (err) {
             if (window.showToast) window.showToast(err.message, "error");
         }
+    },
+
+    /**
+     * Requirement 8: Accept entire multi-order consignment for a single buyer
+     */
+    async acceptBuyerConsignment(buyerId) {
+        const user = api.currentUser || { id: 7, name: "Gramin Express Logistics", mobile: "9811122233" };
+        try {
+            if (window.showToast) window.showToast("Assigning entire buyer consignment to your carrier...", "info");
+            const res = await api.acceptBuyerConsignment({
+                buyer_id: buyerId,
+                agent_id: user.id,
+                agent_name: user.name,
+                agent_mobile: user.mobile || "9811122233"
+            });
+            if (res && res.success) {
+                if (window.showToast) window.showToast(res.message, "success");
+                this.loadHubOperations(this.activeHubId);
+            } else {
+                throw new Error((res && res.message) || "Could not accept buyer consignment.");
+            }
+        } catch (err) {
+            if (window.showToast) window.showToast(err.message, "error");
+        }
+    },
+
+    /**
+     * Requirement 8: Deliver all orders placed by a single buyer at a time simultaneously
+     */
+    async deliverBuyerConsignment(buyerId) {
+        const user = api.currentUser || { id: 7 };
+        if (!confirm("Confirm delivery of all items for this buyer simultaneously?")) return;
+
+        try {
+            if (window.showToast) window.showToast("Delivering all orders for buyer...", "info");
+            const res = await api.deliverBuyerConsignment({
+                buyer_id: buyerId,
+                agent_id: user.id
+            });
+            if (res && res.success) {
+                if (window.showToast) window.showToast(res.message, "success");
+                this.loadHubOperations(this.activeHubId);
+                // Trigger live sync for buyer and farmer
+                window.dispatchEvent(new CustomEvent("kisansetu:order_delivered"));
+                if (window.BuyerController && typeof window.BuyerController.loadMyOrders === "function") {
+                    window.BuyerController.loadMyOrders();
+                }
+                if (window.FarmerController && typeof window.FarmerController.loadOrders === "function") {
+                    window.FarmerController.loadOrders();
+                }
+            } else {
+                throw new Error((res && res.message) || "Could not deliver buyer consignment.");
+            }
+        } catch (err) {
+            if (window.showToast) window.showToast(err.message, "error");
+        }
+    },
+
+    /**
+     * Requirement 8: Render Buyer-Grouped Consignments
+     */
+    renderBuyerGroupedPickups(groups) {
+        const container = document.getElementById("buyerGroupedPickupsContainer");
+        if (!container) return;
+
+        if (!groups || groups.length === 0) {
+            container.innerHTML = `
+                <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: var(--radius-md); padding: 16px; text-align: center; color: #64748b; font-size: 0.9rem;">
+                    No consolidated buyer consignments currently waiting for single-route delivery.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = groups.map(g => {
+            const hasUnassigned = g.any_unassigned;
+            const isAssignedToMe = g.all_assigned_to_me;
+            const canDeliverAll = g.can_deliver_all;
+
+            let actionBtn = "";
+            if (hasUnassigned) {
+                actionBtn = `
+                    <button type="button" class="btn btn-sm btn-primary font-weight-bold btn-block" onclick="LogisticsHook.acceptBuyerConsignment(${g.buyer_id})">
+                        ✋ Accept Entire Consignment (${g.total_orders} Orders)
+                    </button>
+                `;
+            } else if (canDeliverAll) {
+                actionBtn = `
+                    <button type="button" class="btn btn-sm btn-success font-weight-bold btn-block" onclick="LogisticsHook.deliverBuyerConsignment(${g.buyer_id})">
+                        🚚 Deliver All (${g.total_orders} Orders) to Buyer at a Time
+                    </button>
+                `;
+            } else if (isAssignedToMe) {
+                actionBtn = `
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn btn-xs btn-outline-success font-weight-bold" style="flex: 1;" onclick="LogisticsHook.deliverBuyerConsignment(${g.buyer_id})">
+                            🚚 Deliver All at a Time
+                        </button>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="buyer-consignment-card">
+                    <div>
+                        <div class="buyer-consignment-header">
+                            <div>
+                                <div style="font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Consignment Destination</div>
+                                <h4 style="margin: 2px 0 0 0; color: #0f172a; font-size: 1.05rem;">👤 ${g.buyer_name}</h4>
+                                <div class="small text-muted">📞 ${g.buyer_mobile || 'Registered'} • 📍 ${g.delivery_location || (g.buyer_district + ', ' + g.buyer_state)}</div>
+                            </div>
+                            <span class="badge ${isAssignedToMe ? 'badge-success' : 'badge-primary'}" style="font-weight: 700;">
+                                ${g.total_orders} Orders (${g.total_quantity_kg} kg)
+                            </span>
+                        </div>
+
+                        <!-- Orders in this consignment -->
+                        <div class="buyer-consignment-orders-list">
+                            <div style="font-size: 0.75rem; font-weight: 700; color: #475569; margin-bottom: 6px;">Consignment Cargo Manifest:</div>
+                            ${g.orders.map(o => `
+                                <div class="buyer-consignment-item">
+                                    <span><strong>#${o.order_number}</strong>: ${o.product_name} (${o.quantity} kg)</span>
+                                    <span class="text-muted" style="font-size: 0.78rem;">👨‍🌾 ${o.farmer_name}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="mt-2">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
+                            <span class="text-muted">Total Consignment Value:</span>
+                            <strong style="color: #15803d; font-size: 0.95rem;">₹${g.total_value.toFixed(2)}</strong>
+                        </div>
+                        ${actionBtn}
+                    </div>
+                </div>
+            `;
+        }).join('');
     },
 
     /**

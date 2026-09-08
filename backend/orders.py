@@ -152,6 +152,16 @@ def create_order():
     unit_price = calculate_slab_price(slabs, quantity)
     total_amount = round(unit_price * quantity, 2)
 
+    payment_mode = (data.get("payment_mode") or "COD").upper()
+    transaction_id = data.get("transaction_id") or f"TXN-DEMO-{uuid.uuid4().hex[:8].upper()}"
+
+    product_cost = round(unit_price * quantity, 2)
+    transport_cost = float(data.get("transport_cost") or round(35.0 + (quantity * 1.2), 2))
+    packaging_cost = float(data.get("packaging_cost") or round(15.0 + (quantity * 0.4), 2))
+    tax_amount = float(data.get("tax_amount") or round((product_cost + transport_cost + packaging_cost) * 0.05, 2))
+    total_amount = round(product_cost + transport_cost + packaging_cost + tax_amount, 2)
+    payment_status = "paid" if payment_mode in ["UPI", "CARD"] else "pending_cod"
+
     # Resolve Farmer GPS Coordinates & Nearest Origin Hub
     cursor.execute("SELECT latitude, longitude FROM users WHERE id = ?", (product["farmer_id"],))
     f_user = cursor.fetchone()
@@ -197,12 +207,14 @@ def create_order():
             INSERT INTO orders (
                 order_number, product_id, product_name, farmer_id, farmer_name, farmer_state,
                 buyer_id, buyer_name, buyer_mobile, delivery_location, quantity, price_per_kg,
-                total_amount, status, tracking_info, origin_hub_id, destination_hub_id, current_hub_id, transit_stage
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ordered', ?, ?, ?, ?, 'awaiting_pickup')
+                total_amount, status, tracking_info, origin_hub_id, destination_hub_id, current_hub_id, transit_stage,
+                product_cost, transport_cost, packaging_cost, tax_amount, payment_mode, payment_status, transaction_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ordered', ?, ?, ?, ?, 'awaiting_pickup', ?, ?, ?, ?, ?, ?, ?)
         """, (
             order_number, product["id"], product["name"], product["farmer_id"], product["farmer_name"], product["farmer_state"],
             buyer_id, buyer["name"], buyer["mobile"], delivery_location, quantity, unit_price,
-            total_amount, initial_tracking, origin_hub_id, destination_hub_id, current_hub_id
+            total_amount, initial_tracking, origin_hub_id, destination_hub_id, current_hub_id,
+            product_cost, transport_cost, packaging_cost, tax_amount, payment_mode, payment_status, transaction_id
         ))
 
         # Decrement product stock
@@ -219,7 +231,196 @@ def create_order():
             "order_id": order_id,
             "order_number": order_number,
             "total_amount": total_amount,
-            "unit_price": unit_price
+            "product_cost": product_cost,
+            "transport_cost": transport_cost,
+            "packaging_cost": packaging_cost,
+            "tax_amount": tax_amount,
+            "unit_price": unit_price,
+            "payment_mode": payment_mode,
+            "transaction_id": transaction_id
+        })
+    except Exception as e:
+        conn.close()
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@orders_bp.route("/create-cart-order", methods=["POST"])
+def create_cart_order():
+    """
+    Creates consolidated grouped order from buyer's shopping cart.
+    Enforces constraints:
+    1. Single buyer must order minimum 4 distinct product types.
+    2. Minimum 2 kg is required per product.
+    Generates batch_group_id and itemized tax invoice breakdown.
+    """
+    data = request.get_json() or {}
+    buyer_id = data.get("buyer_id")
+    items = data.get("items") or []
+    delivery_location = (data.get("delivery_location") or "").strip()
+    payment_mode = (data.get("payment_mode") or "COD").upper()
+    transaction_id = data.get("transaction_id") or f"TXN-DEMO-{uuid.uuid4().hex[:8].upper()}"
+
+    if not buyer_id or not delivery_location:
+        return jsonify({"success": False, "message": "Buyer and delivery location are required."}), 400
+
+    # Constraint 1: Minimum 4 distinct product types required
+    if len(items) < 4:
+        return jsonify({
+            "success": False, 
+            "message": f"Cart requires minimum 4 types of products to place an order (currently {len(items)} selected)."
+        }), 400
+
+    # Constraint 2: Minimum 2 kg required for each product
+    for idx, item in enumerate(items, 1):
+        q = float(item.get("quantity") or 0)
+        if q < 2.0:
+            return jsonify({
+                "success": False,
+                "message": f"Item #{idx} ({item.get('name') or 'Product'}) does not meet the minimum 2 kg requirement (selected: {q} kg)."
+            }), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name, mobile, address FROM users WHERE id = ?", (buyer_id,))
+    buyer = cursor.fetchone()
+    if not buyer:
+        conn.close()
+        return jsonify({"success": False, "message": "Buyer not found."}), 404
+
+    from backend.products import calculate_slab_price
+
+    batch_group_id = f"GRP-{datetime.datetime.now().year}-{uuid.uuid4().hex[:6].upper()}"
+    payment_status = "paid" if payment_mode in ["UPI", "CARD"] else "pending_cod"
+
+    # Pre-validate all products and quantities
+    validated_items = []
+    total_produce_cost = 0.0
+    total_weight_kg = 0.0
+
+    for item in items:
+        pid = item.get("product_id")
+        qty = float(item.get("quantity"))
+        cursor.execute("SELECT * FROM products WHERE id = ?", (pid,))
+        prod = cursor.fetchone()
+        if not prod:
+            conn.close()
+            return jsonify({"success": False, "message": f"Product ID {pid} not found."}), 404
+        if prod["available_quantity"] < qty:
+            conn.close()
+            return jsonify({"success": False, "message": f"Insufficient stock for {prod['name']}. Available: {prod['available_quantity']} kg."}), 400
+
+        cursor.execute("SELECT min_quantity, max_quantity, price_per_kg FROM price_slabs WHERE product_id = ? ORDER BY min_quantity ASC", (pid,))
+        slabs = [dict(s) for s in cursor.fetchall()]
+        unit_price = calculate_slab_price(slabs, qty)
+        item_cost = round(unit_price * qty, 2)
+        total_produce_cost += item_cost
+        total_weight_kg += qty
+
+        validated_items.append({
+            "product": dict(prod),
+            "quantity": qty,
+            "unit_price": unit_price,
+            "product_cost": item_cost
+        })
+
+    # Consolidated logistics fee: base ₹50 + ₹1.5 per kg for consolidated delivery
+    total_transport_cost = round(50.0 + (total_weight_kg * 1.5), 2)
+    # Eco-friendly consolidated packaging: ₹15 base + ₹5 per product type
+    total_packaging_cost = round(15.0 + (len(validated_items) * 5.0), 2)
+    # GST / Tax: 5%
+    total_tax_amount = round((total_produce_cost + total_transport_cost + total_packaging_cost) * 0.05, 2)
+    grand_total = round(total_produce_cost + total_transport_cost + total_packaging_cost + total_tax_amount, 2)
+
+    created_orders = []
+
+    try:
+        for val in validated_items:
+            prod = val["product"]
+            qty = val["quantity"]
+            unit_price = val["unit_price"]
+            item_prod_cost = val["product_cost"]
+
+            # Proportionate allocation of transport, packaging, and tax per item for accurate item invoicing
+            share_ratio = item_prod_cost / total_produce_cost if total_produce_cost > 0 else (1.0 / len(validated_items))
+            item_transport = round(total_transport_cost * share_ratio, 2)
+            item_packaging = round(total_packaging_cost * share_ratio, 2)
+            item_tax = round(total_tax_amount * share_ratio, 2)
+            item_total = round(item_prod_cost + item_transport + item_packaging + item_tax, 2)
+
+            cursor.execute("SELECT latitude, longitude FROM users WHERE id = ?", (prod["farmer_id"],))
+            f_user = cursor.fetchone()
+            f_lat = f_user["latitude"] if (f_user and f_user["latitude"] is not None) else None
+            f_lng = f_user["longitude"] if (f_user and f_user["longitude"] is not None) else None
+            if f_lat is None or f_lng is None:
+                f_lat, f_lng = resolve_location_coords(prod["farmer_district"] or prod["farmer_state"], (12.9352, 80.1878))
+            origin_hub_id = resolve_nearest_hub(f_lat, f_lng, cursor)
+
+            cursor.execute("SELECT latitude, longitude FROM users WHERE id = ?", (buyer_id,))
+            b_user = cursor.fetchone()
+            b_lat = b_user["latitude"] if (b_user and b_user["latitude"] is not None) else None
+            b_lng = b_user["longitude"] if (b_user and b_user["longitude"] is not None) else None
+            if b_lat is None or b_lng is None:
+                b_lat, b_lng = resolve_location_coords(delivery_location, (13.0012, 80.2565))
+            destination_hub_id = resolve_nearest_hub(b_lat, b_lng, cursor)
+            current_hub_id = origin_hub_id
+
+            order_number = f"ORD-{datetime.datetime.now().year}-{uuid.uuid4().hex[:6].upper()}"
+            initial_tracking = json.dumps([
+                {
+                    "time": datetime.datetime.now().strftime("%d %b %Y, %I:%M %p"),
+                    "status": "Consolidated Cart Order Placed",
+                    "location": f"Consignment Batch #{batch_group_id}",
+                    "route_plan": f"📦 Grouped Dispatch ➔ 🚚 Unified Delivery to {buyer['name']}"
+                }
+            ])
+
+            cursor.execute("""
+                INSERT INTO orders (
+                    order_number, product_id, product_name, farmer_id, farmer_name, farmer_state,
+                    buyer_id, buyer_name, buyer_mobile, delivery_location, quantity, price_per_kg,
+                    total_amount, status, tracking_info, origin_hub_id, destination_hub_id, current_hub_id, transit_stage,
+                    batch_group_id, product_cost, transport_cost, packaging_cost, tax_amount, payment_mode, payment_status, transaction_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ordered', ?, ?, ?, ?, 'awaiting_pickup', ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                order_number, prod["id"], prod["name"], prod["farmer_id"], prod["farmer_name"], prod["farmer_state"],
+                buyer_id, buyer["name"], buyer["mobile"], delivery_location, qty, unit_price,
+                item_total, initial_tracking, origin_hub_id, destination_hub_id, current_hub_id,
+                batch_group_id, item_prod_cost, item_transport, item_packaging, item_tax, payment_mode, payment_status, transaction_id
+            ))
+
+            # Decrement product stock
+            new_stock = prod["available_quantity"] - qty
+            cursor.execute("UPDATE products SET available_quantity = ? WHERE id = ?", (new_stock, prod["id"]))
+
+            created_orders.append({
+                "order_id": cursor.lastrowid,
+                "order_number": order_number,
+                "product_name": prod["name"],
+                "quantity": qty,
+                "unit_price": unit_price,
+                "total_amount": item_total
+            })
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "message": f"Consolidated order #{batch_group_id} placed successfully ({len(created_orders)} products)!",
+            "batch_group_id": batch_group_id,
+            "orders": created_orders,
+            "summary": {
+                "total_items": len(created_orders),
+                "total_weight_kg": total_weight_kg,
+                "product_cost": total_produce_cost,
+                "transport_cost": total_transport_cost,
+                "packaging_cost": total_packaging_cost,
+                "tax_amount": total_tax_amount,
+                "grand_total": grand_total,
+                "payment_mode": payment_mode,
+                "payment_status": payment_status,
+                "transaction_id": transaction_id
+            }
         })
     except Exception as e:
         conn.close()
@@ -279,8 +480,8 @@ def list_orders():
 
     query = """
         SELECT o.*, 
-               f.latitude AS f_lat, f.longitude AS f_lng, f.district AS f_district,
-               b.latitude AS b_lat, b.longitude AS b_lng, b.district AS b_district
+               f.latitude AS f_lat, f.longitude AS f_lng, f.district AS f_district, f.address AS f_address,
+               b.latitude AS b_lat, b.longitude AS b_lng, b.district AS b_district, b.address AS b_address
         FROM orders o
         LEFT JOIN users f ON o.farmer_id = f.id
         LEFT JOIN users b ON o.buyer_id = b.id

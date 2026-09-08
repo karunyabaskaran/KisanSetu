@@ -1,6 +1,6 @@
 // KisanSetu Advanced Service Worker - Full Mobile Offline & PWA Engine
-const CACHE_NAME = 'kisansetu-app-v2';
-const DATA_CACHE_NAME = 'kisansetu-data-v2';
+const CACHE_NAME = 'kisansetu-app-v3.1';
+const DATA_CACHE_NAME = 'kisansetu-data-v3.1';
 
 const STATIC_ASSETS = [
   '/',
@@ -23,7 +23,6 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      // Cache assets individually so any single failure doesn't abort the entire install
       for (const asset of STATIC_ASSETS) {
         try {
           await cache.add(asset);
@@ -42,6 +41,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME && key !== DATA_CACHE_NAME) {
+            console.log('Purged outdated KisanSetu cache:', key);
             return caches.delete(key);
           }
         })
@@ -51,7 +51,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch Interceptor: Stale-while-revalidate for static assets, network-first with cache fallback for API
+// Fetch Interceptor: Network-First for HTML/Scripts/Styles to ensure instant visibility of code changes
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -76,7 +76,6 @@ self.addEventListener('fetch', (event) => {
             if (cached) {
               return cached;
             }
-            // Return empty JSON fallback if API is not cached yet
             return new Response(JSON.stringify({ 
               success: false, 
               offline: true, 
@@ -90,27 +89,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Static Assets & Pages - Cache First / Stale-While-Revalidate
+  // 2. Static Assets, Navigation & Pages - Network First (instant live updates), Fallback to Cache
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const respClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, respClone);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // If offline and requesting an HTML page, serve cached index.html
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const respClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, respClone);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
           if (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) {
             return caches.match('/') || caches.match('/index.html');
           }
         });
-
-      return cached || fetchPromise;
-    })
+      })
   );
 });

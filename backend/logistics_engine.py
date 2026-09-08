@@ -11,6 +11,7 @@ Implements Multi-Hub Collection and Delivery Route Optimization considering:
 
 import math
 import datetime
+import json
 from flask import Blueprint, request, jsonify
 from backend.db import get_db
 
@@ -535,19 +536,189 @@ def get_hub_operations():
     # Sort available pickups by distance to active hub
     near_pickups.sort(key=lambda x: x["distance_to_hub_km"])
 
+    # Group available pickups by buyer_name for consolidated logistics delivery
+    buyer_groups_map = {}
+    for p in near_pickups:
+        b_key = str(p.get("buyer_id") or p.get("buyer_name"))
+        if b_key not in buyer_groups_map:
+            buyer_groups_map[b_key] = {
+                "buyer_id": p.get("buyer_id"),
+                "buyer_name": p.get("buyer_name"),
+                "buyer_mobile": p.get("buyer_mobile"),
+                "delivery_location": p.get("delivery_location"),
+                "batch_group_id": p.get("batch_group_id"),
+                "orders": [],
+                "total_quantity": 0.0,
+                "total_amount": 0.0,
+                "min_distance_to_hub_km": p.get("distance_to_hub_km", 15.0),
+                "is_unassigned": True,
+                "is_assigned_to_me": False,
+                "assigned_agent_name": None
+            }
+        g = buyer_groups_map[b_key]
+        g["orders"].append(p)
+        g["total_quantity"] = round(g["total_quantity"] + float(p.get("quantity", 0)), 2)
+        g["total_amount"] = round(g["total_amount"] + float(p.get("total_amount", 0)), 2)
+        if p.get("distance_to_hub_km", 999) < g["min_distance_to_hub_km"]:
+            g["min_distance_to_hub_km"] = p.get("distance_to_hub_km")
+        if p.get("is_assigned_to_me"):
+            g["is_assigned_to_me"] = True
+            g["is_unassigned"] = False
+            g["assigned_agent_name"] = p.get("assigned_agent_name")
+        elif not p.get("is_unassigned"):
+            g["is_unassigned"] = False
+            g["assigned_agent_name"] = p.get("assigned_agent_name")
+
+    for g in buyer_groups_map.values():
+        g["total_orders"] = len(g["orders"])
+        g["total_quantity_kg"] = g["total_quantity"]
+        g["total_value"] = g["total_amount"]
+        g["any_unassigned"] = any(o.get("is_unassigned") for o in g["orders"])
+        g["all_assigned_to_me"] = len(g["orders"]) > 0 and all(o.get("is_assigned_to_me") for o in g["orders"])
+        g["can_deliver_all"] = len(g["orders"]) > 0 and all(o.get("status") in ["shipped", "pickup_complete"] or o.get("is_assigned_to_me") for o in g["orders"])
+
+    buyer_grouped_pickups = list(buyer_groups_map.values())
+    buyer_grouped_pickups.sort(key=lambda x: x["min_distance_to_hub_km"])
+
     return jsonify({
         "success": True,
         "active_hub": active_hub,
         "connected_hubs": connected_network_hubs,
         "current_agent_id": current_agent_id,
         "near_pickups": near_pickups,
+        "buyer_grouped_pickups": buyer_grouped_pickups,
         "route_deliveries": route_deliveries,
         "all_consignments": all_consignments, # Fed to the Audit Panel
         "counts": {
             "pickups_pending": len(near_pickups),
+            "buyer_consignments_pending": len(buyer_grouped_pickups),
             "deliveries_in_transit": len(route_deliveries),
             "total_audit_consignments": len(all_consignments)
         }
+    })
+
+@logistics_bp.route("/accept-buyer-consignment", methods=["POST"])
+def accept_buyer_consignment():
+    """
+    Consolidated Buyer Assignment:
+    Carrier accepts all pending pickup orders placed by a single buyer simultaneously.
+    """
+    data = request.get_json() or {}
+    buyer_id = data.get("buyer_id")
+    buyer_name = (data.get("buyer_name") or "").strip()
+    agent_id = data.get("agent_id")
+    agent_name = (data.get("agent_name") or "Authorized Logistics Carrier").strip()
+    agent_mobile = (data.get("agent_mobile") or "").strip()
+
+    if not agent_id or (not buyer_id and not buyer_name):
+        return jsonify({"success": False, "message": "Buyer and Agent ID are required."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if buyer_id:
+        cursor.execute("SELECT id, order_number, tracking_info FROM orders WHERE buyer_id = ? AND status = 'ordered'", (buyer_id,))
+    else:
+        cursor.execute("SELECT id, order_number, tracking_info FROM orders WHERE buyer_name = ? AND status = 'ordered'", (buyer_name,))
+
+    orders = cursor.fetchall()
+    if not orders:
+        conn.close()
+        return jsonify({"success": False, "message": "No unassigned orders found for this buyer."}), 404
+
+    now_str = datetime.datetime.now().strftime("%d %b %Y, %I:%M %p")
+    accepted_count = 0
+
+    for ord_row in orders:
+        ord_id = ord_row["id"]
+        tracking = json.loads(ord_row["tracking_info"] or "[]")
+        tracking.append({
+            "time": now_str,
+            "status": f"Consolidated Consignment Accepted by Carrier {agent_name}",
+            "location": "Origin Hub / Farm Cluster",
+            "route_plan": f"Handled by Fleet: {agent_name} ({agent_mobile or 'Verified Driver'})"
+        })
+
+        cursor.execute("""
+            UPDATE orders
+            SET assigned_agent_id = ?,
+                assigned_agent_name = ?,
+                assigned_agent_mobile = ?,
+                accepted_at = CURRENT_TIMESTAMP,
+                transit_stage = 'carrier_en_route_pickup',
+                tracking_info = ?
+            WHERE id = ?
+        """, (agent_id, agent_name, agent_mobile, json.dumps(tracking), ord_id))
+        accepted_count += 1
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "message": f"Successfully accepted {accepted_count} orders for buyer {buyer_name or f'#{buyer_id}'}! Ready for consolidated delivery.",
+        "accepted_count": accepted_count
+    })
+
+@logistics_bp.route("/deliver-buyer-consignment", methods=["POST"])
+def deliver_buyer_consignment():
+    """
+    Unified Consolidated Delivery:
+    Delivers ALL orders placed by a single buyer at a time!
+    Sets status = 'delivered' and delivered_at = CURRENT_TIMESTAMP for all buyer orders.
+    """
+    data = request.get_json() or {}
+    buyer_id = data.get("buyer_id")
+    buyer_name = (data.get("buyer_name") or "").strip()
+    agent_name = (data.get("agent_name") or "Authorized Logistics Fleet").strip()
+    note = (data.get("note") or "Consolidated consignment handed over to buyer in single trip.").strip()
+
+    if not buyer_id and not buyer_name:
+        return jsonify({"success": False, "message": "Buyer ID or Buyer Name is required."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if buyer_id:
+        cursor.execute("SELECT id, order_number, tracking_info, status FROM orders WHERE buyer_id = ? AND status IN ('ordered', 'pickup_complete', 'shipped')", (buyer_id,))
+    else:
+        cursor.execute("SELECT id, order_number, tracking_info, status FROM orders WHERE buyer_name = ? AND status IN ('ordered', 'pickup_complete', 'shipped')", (buyer_name,))
+
+    orders = cursor.fetchall()
+    if not orders:
+        conn.close()
+        return jsonify({"success": False, "message": "No active undelivered orders found for this buyer."}), 404
+
+    now_str = datetime.datetime.now().strftime("%d %b %Y, %I:%M %p")
+    delivered_count = 0
+
+    for ord_row in orders:
+        ord_id = ord_row["id"]
+        tracking = json.loads(ord_row["tracking_info"] or "[]")
+        tracking.append({
+            "time": now_str,
+            "status": "Consolidated Delivery Completed at Doorstep",
+            "location": "Buyer Handover Location",
+            "route_plan": f"Verified by {agent_name}. Notes: {note}"
+        })
+
+        cursor.execute("""
+            UPDATE orders
+            SET status = 'delivered',
+                delivered_at = CURRENT_TIMESTAMP,
+                transit_stage = 'delivered_to_buyer',
+                tracking_info = ?
+            WHERE id = ?
+        """, (json.dumps(tracking), ord_id))
+        delivered_count += 1
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "message": f"Successfully delivered all {delivered_count} orders to {buyer_name or f'Buyer #{buyer_id}'} at a time! 7-day inspection window activated.",
+        "delivered_count": delivered_count
     })
 
 @logistics_bp.route("/accept-order", methods=["POST"])

@@ -51,6 +51,7 @@ def register():
     confirm_password = data.get("confirm_password", "")
     state = data.get("state", "").strip()
     district = data.get("district", "").strip()
+    address = data.get("address", "").strip()
     village = data.get("village", "").strip()
     pincode = data.get("pincode", "").strip()
     latitude = data.get("latitude")
@@ -58,6 +59,9 @@ def register():
 
     if not name or not mobile or not password:
         return jsonify({"success": False, "message": "Name, mobile, and password are required"}), 400
+
+    if not state or not district or not address:
+        return jsonify({"success": False, "message": "State, district, and complete address are required for all portals."}), 400
 
     if password != confirm_password:
         return jsonify({"success": False, "message": "Passwords do not match"}), 400
@@ -73,13 +77,13 @@ def register():
 
     try:
         cursor.execute("""
-            INSERT INTO users (name, mobile, role, state, district, village, pincode, latitude, longitude, password)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, mobile, role, state, district, village, pincode, latitude, longitude, password))
+            INSERT INTO users (name, mobile, role, state, district, village, address, pincode, latitude, longitude, password)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, mobile, role, state, district, village, address, pincode, latitude, longitude, password))
         conn.commit()
         user_id = cursor.lastrowid
 
-        cursor.execute("SELECT id, name, mobile, role, state, district, village, pincode, latitude, longitude FROM users WHERE id = ?", (user_id,))
+        cursor.execute("SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude FROM users WHERE id = ?", (user_id,))
         user_row = dict(cursor.fetchone())
         conn.close()
 
@@ -137,7 +141,7 @@ def profile():
     cursor = conn.cursor()
 
     if request.method == "GET":
-        cursor.execute("SELECT id, name, mobile, role, state, district, village, pincode, latitude, longitude FROM users WHERE id = ?", (user_id,))
+        cursor.execute("SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude FROM users WHERE id = ?", (user_id,))
         user = cursor.fetchone()
         conn.close()
         if not user:
@@ -150,6 +154,7 @@ def profile():
     state = data.get("state")
     district = data.get("district")
     village = data.get("village")
+    address = data.get("address")
     pincode = data.get("pincode")
 
     cursor.execute("""
@@ -158,12 +163,13 @@ def profile():
             state = COALESCE(?, state),
             district = COALESCE(?, district),
             village = COALESCE(?, village),
+            address = COALESCE(?, address),
             pincode = COALESCE(?, pincode)
         WHERE id = ?
-    """, (name, state, district, village, pincode, user_id))
+    """, (name, state, district, village, address, pincode, user_id))
     conn.commit()
 
-    cursor.execute("SELECT id, name, mobile, role, state, district, village, pincode, latitude, longitude FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude FROM users WHERE id = ?", (user_id,))
     updated_user = cursor.fetchone()
     conn.close()
 

@@ -18,6 +18,7 @@ const FarmerController = {
     ],
 
     latestAIForecast: null,
+    uploadedProductImageData: null,
 
     init() {
         this.renderSlabInputs();
@@ -26,6 +27,7 @@ const FarmerController = {
         this.loadOrders();
         this.loadTickets();
         this.loadProfile();
+        this.initImagePicker();
 
         // Crop selector change listener for AI demand forecast
         const cropSelect = document.getElementById("farmerAICropSelect");
@@ -186,6 +188,43 @@ const FarmerController = {
         }
     },
 
+    initImagePicker() {
+        const fileInput = document.getElementById("prod_image_file");
+        const previewBox = document.getElementById("prod_image_preview_box");
+        const previewImg = document.getElementById("prod_image_preview");
+        const clearBtn = document.getElementById("btnClearProdImage");
+
+        if (fileInput && !fileInput.dataset.bound) {
+            fileInput.dataset.bound = "true";
+            fileInput.addEventListener("change", (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith("image/")) {
+                    window.showToast("Please select a valid image file.", "error");
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    this.uploadedProductImageData = evt.target.result;
+                    if (previewImg) previewImg.src = evt.target.result;
+                    if (previewBox) previewBox.style.display = "flex";
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        if (clearBtn && !clearBtn.dataset.bound) {
+            clearBtn.dataset.bound = "true";
+            clearBtn.addEventListener("click", () => {
+                this.uploadedProductImageData = null;
+                if (fileInput) fileInput.value = "";
+                if (previewBox) previewBox.style.display = "none";
+            });
+        }
+    },
+
     // --- Add Produce ---
     async handleAddProduct(e) {
         e.preventDefault();
@@ -202,7 +241,8 @@ const FarmerController = {
         const grade = document.getElementById("prod_grade").value;
         const quantity = parseFloat(document.getElementById("prod_qty").value);
         const description = document.getElementById("prod_desc").value.trim();
-        const image_url = document.getElementById("prod_image").value.trim();
+        const enteredUrl = document.getElementById("prod_image") ? document.getElementById("prod_image").value.trim() : "";
+        const image_url = this.uploadedProductImageData || enteredUrl || "";
 
         const payload = {
             farmer_id: user.id,
@@ -221,6 +261,10 @@ const FarmerController = {
             const res = await api.addProduct(payload);
             window.showToast(res.message, "success");
             document.getElementById("addProductForm").reset();
+            this.uploadedProductImageData = null;
+            const previewBox = document.getElementById("prod_image_preview_box");
+            if (previewBox) previewBox.style.display = "none";
+
             this.currentSlabs = [
                 { min_quantity: 0, max_quantity: 10, price_per_kg: 40 },
                 { min_quantity: 10, max_quantity: 50, price_per_kg: 35 },

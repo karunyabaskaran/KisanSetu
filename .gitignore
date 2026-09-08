@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+env/
+venv/
+ENV/
+
+# Database & Credentials (Crucial for Firebase & Render security)
+firebase_credentials.json
+firebase_config.json
+*.pem
+*.key
+
+# Local SQLite (can be kept in git if you want seed data or ignored)
+# kisansetu.db
+
+# Static uploads & logs
+static/uploads/*
+!static/uploads/.gitkeep
+*.log
+scratch/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

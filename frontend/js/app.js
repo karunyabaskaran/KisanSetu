@@ -401,24 +401,28 @@ window.showLoginModal = function(role = "farmer") {
     }
     const roleMeta = {
         farmer: {
+            titleKey: "role_farmer",
             title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_farmer") : "Farmer / FPO",
             icon: "👨‍🌾",
             badge: "Farmer Portal",
             colorClass: "static-role-farmer"
         },
         buyer: {
+            titleKey: "role_buyer",
             title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_buyer") : "Buyer / Consumer",
             icon: "🛒",
             badge: "Buyer Portal",
             colorClass: "static-role-buyer"
         },
         logistics: {
+            titleKey: "role_logistics",
             title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_logistics") : "Logistics Partner",
             icon: "🚛",
             badge: "Logistics Portal",
             colorClass: "static-role-logistics"
         },
         admin: {
+            titleKey: "role_admin",
             title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_admin") : "Ministry (Admin)",
             icon: "🏛️",
             badge: "Ministry Portal",
@@ -436,7 +440,10 @@ window.showLoginModal = function(role = "farmer") {
     if (iconEl) iconEl.textContent = meta.icon;
 
     const titleEl = document.getElementById("login_role_static_title");
-    if (titleEl) titleEl.textContent = meta.title;
+    if (titleEl) {
+        titleEl.textContent = meta.title;
+        titleEl.setAttribute("data-i18n", meta.titleKey);
+    }
 
     const badgeEl = document.getElementById("login_role_static_badge");
     if (badgeEl) badgeEl.textContent = meta.badge;
@@ -455,27 +462,93 @@ window.closeLoginModal = function() {
     if (modal) modal.classList.remove("active");
 };
 
+window.switchToRegisterFromLogin = function() {
+    const hiddenInput = document.getElementById("login_role_select");
+    const currentRole = (hiddenInput && hiddenInput.value) ? hiddenInput.value : "farmer";
+    closeLoginModal();
+    showRegisterModal(currentRole);
+};
+
+window.switchToLoginFromRegister = function() {
+    const hiddenInput = document.getElementById("reg_role");
+    const currentRole = (hiddenInput && hiddenInput.value) ? hiddenInput.value : "farmer";
+    closeRegisterModal();
+    showLoginModal(currentRole);
+};
+
 window.showRegisterModal = function(role = "farmer") {
     if (api.currentUser) {
         showToast(`You are already logged into the ${api.currentUser.role.toUpperCase()} panel. To register or login to another panel, first logout from the already logged in panel.`, "warning");
         return;
     }
-    const select = document.getElementById("reg_role");
-    if (select && role) {
-        select.value = role;
+    const roleMeta = {
+        farmer: {
+            titleKey: "role_farmer",
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_farmer") : "Farmer / FPO",
+            icon: "👨‍🌾",
+            badge: "Farmer Portal",
+            colorClass: "static-role-farmer"
+        },
+        buyer: {
+            titleKey: "role_buyer",
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_buyer") : "Buyer / Consumer",
+            icon: "🛒",
+            badge: "Buyer Portal",
+            colorClass: "static-role-buyer"
+        },
+        logistics: {
+            titleKey: "role_logistics",
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_logistics") : "Logistics Partner",
+            icon: "🚛",
+            badge: "Logistics Portal",
+            colorClass: "static-role-logistics"
+        },
+        admin: {
+            titleKey: "role_admin",
+            title: (typeof i18n !== "undefined" && i18n.t) ? i18n.t("role_admin") : "Ministry (Admin)",
+            icon: "🏛️",
+            badge: "Ministry Portal",
+            colorClass: "static-role-admin"
+        }
+    };
+
+    const meta = roleMeta[role] || roleMeta.farmer;
+    const hiddenInput = document.getElementById("reg_role");
+    if (hiddenInput) {
+        hiddenInput.value = role;
     }
+
+    const iconEl = document.getElementById("reg_role_static_icon");
+    if (iconEl) iconEl.textContent = meta.icon;
+
+    const titleEl = document.getElementById("reg_role_static_title");
+    if (titleEl) {
+        titleEl.textContent = meta.title;
+        titleEl.setAttribute("data-i18n", meta.titleKey);
+    }
+
+    const badgeEl = document.getElementById("reg_role_static_badge");
+    if (badgeEl) badgeEl.textContent = meta.badge;
+
+    const boxEl = document.getElementById("reg_role_static_field");
+    if (boxEl) {
+        boxEl.className = `static-role-field ${meta.colorClass}`;
+    }
+
     toggleRegisterFields(role);
 
     const modal = document.getElementById("registerModal");
     if (modal) {
         modal.classList.add("active");
-        // Initialize interactive Leaflet map after modal becomes visible
-        setTimeout(() => {
-            if (!mapPickerInstance) {
-                mapPickerInstance = new KisanMapPicker("registerMapContainer");
-            }
-            mapPickerInstance.init();
-        }, 200);
+        // Initialize interactive Leaflet map after modal becomes visible (only if farmer)
+        if (role === "farmer") {
+            setTimeout(() => {
+                if (!mapPickerInstance) {
+                    mapPickerInstance = new KisanMapPicker("registerMapContainer");
+                }
+                mapPickerInstance.init();
+            }, 200);
+        }
     }
 };
 
@@ -592,6 +665,7 @@ function initEventListeners() {
             const mobile = document.getElementById("reg_mobile").value.trim();
             const state = document.getElementById("reg_state").value.trim();
             const district = document.getElementById("reg_district").value.trim();
+            const address = document.getElementById("reg_address") ? document.getElementById("reg_address").value.trim() : "";
             const village = document.getElementById("reg_village") ? document.getElementById("reg_village").value.trim() : "";
             const pincode = document.getElementById("reg_pincode").value.trim();
             const password = document.getElementById("reg_password").value;
@@ -609,7 +683,7 @@ function initEventListeners() {
 
             try {
                 const res = await api.register({
-                    role, name, mobile, state, district, village, pincode,
+                    role, name, mobile, state, district, address, village, pincode,
                     password, confirm_password,
                     latitude: lat, longitude: lng
                 });

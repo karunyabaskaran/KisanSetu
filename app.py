@@ -49,6 +49,13 @@ def serve_uploads(filename):
     uploads_dir = os.path.join(os.path.dirname(__file__), "static", "uploads")
     return send_from_directory(uploads_dir, filename)
 
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 @app.route("/api/system-status")
 def system_status():
     fb_status = get_firebase_status()

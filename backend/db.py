@@ -118,6 +118,12 @@ def init_db():
     )
     """)
 
+    # Dynamic schema migration for users table
+    cursor.execute("PRAGMA table_info(users)")
+    user_cols = {row["name"] for row in cursor.fetchall()}
+    if "address" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN address TEXT")
+
     # Dynamic schema migration for orders table
     cursor.execute("PRAGMA table_info(orders)")
     existing_cols = {row["name"] for row in cursor.fetchall()}
@@ -129,7 +135,15 @@ def init_db():
         ("origin_hub_id", "INTEGER"),
         ("destination_hub_id", "INTEGER"),
         ("current_hub_id", "INTEGER"),
-        ("transit_stage", "TEXT DEFAULT 'awaiting_pickup'")
+        ("transit_stage", "TEXT DEFAULT 'awaiting_pickup'"),
+        ("batch_group_id", "TEXT"),
+        ("product_cost", "REAL"),
+        ("transport_cost", "REAL"),
+        ("packaging_cost", "REAL"),
+        ("tax_amount", "REAL"),
+        ("payment_mode", "TEXT DEFAULT 'COD'"),
+        ("payment_status", "TEXT DEFAULT 'pending_cod'"),
+        ("transaction_id", "TEXT")
     ]
     for col_name, col_type in order_migrations:
         if col_name not in existing_cols:
@@ -206,97 +220,31 @@ def seed_data(conn):
     # --- Users ---
     sample_users = [
         # Farmer 1 - Tamil Nadu (Chennai region)
-        ("Murugan Raman", "9840123456", "farmer", "Tamil Nadu", "Chennai", "Kovilambakkam", "600129", 12.9352, 80.1878, "farmer123"),
+        ("Murugan Raman", "9840123456", "farmer", "Tamil Nadu", "Chennai", "Kovilambakkam", "Door No. 12, Delta Farm Road, Kovilambakkam", "600129", 12.9352, 80.1878, "farmer123"),
         # Farmer 2 - Maharashtra (Nashik)
-        ("Dnyaneshwar Patil", "9822345678", "farmer", "Maharashtra", "Nashik", "Ozar", "422206", 20.0898, 73.9182, "farmer123"),
+        ("Dnyaneshwar Patil", "9822345678", "farmer", "Maharashtra", "Nashik", "Ozar", "Plot 45, Agro Park, Ozar", "422206", 20.0898, 73.9182, "farmer123"),
         # Farmer 3 - Punjab (Ludhiana)
-        ("Gurpreet Singh", "9814567890", "farmer", "Punjab", "Ludhiana", "Sahnewal", "141120", 30.8490, 75.9818, "farmer123"),
+        ("Gurpreet Singh", "9814567890", "farmer", "Punjab", "Ludhiana", "Sahnewal", "Farm House 8, GT Road, Sahnewal", "141120", 30.8490, 75.9818, "farmer123"),
         # Farmer 4 - Karnataka (Mysuru)
-        ("Basavaraj Gowda", "9845678901", "farmer", "Karnataka", "Mysuru", "Nanjangud", "571301", 12.1200, 76.6800, "farmer123"),
+        ("Basavaraj Gowda", "9845678901", "farmer", "Karnataka", "Mysuru", "Nanjangud", "Kapila Riverside Farm, Nanjangud", "571301", 12.1200, 76.6800, "farmer123"),
         # Buyer 1 - Tamil Nadu (Chennai)
-        ("Anand Krishnan", "9884123456", "buyer", "Tamil Nadu", "Chennai", "Adyar", "600020", 13.0012, 80.2565, "buyer123"),
+        ("Anand Krishnan", "9884123456", "buyer", "Tamil Nadu", "Chennai", "Adyar", "Flat 4B, Emerald Apts, 2nd Main Rd, Gandhi Nagar, Adyar", "600020", 13.0012, 80.2565, "buyer123"),
         # Buyer 2 - Bulk buyer from Maharashtra (Mumbai)
-        ("Reliance Fresh Wholesale (Rajesh)", "9820123456", "buyer", "Maharashtra", "Mumbai", "Andheri", "400053", 19.1136, 72.8697, "buyer123"),
+        ("Reliance Fresh Wholesale (Rajesh)", "9820123456", "buyer", "Maharashtra", "Mumbai", "Andheri", "Warehouse 5, MIDC Industrial Area, Andheri East", "400053", 19.1136, 72.8697, "buyer123"),
         # Logistics Provider
-        ("Gramin Express Logistics", "9811122233", "logistics", "Delhi", "New Delhi", "Connaught Place", "110001", 28.6304, 77.2177, "logistics123"),
+        ("Gramin Express Logistics", "9811122233", "logistics", "Delhi", "New Delhi", "Connaught Place", "Office 102, Regal Building, Connaught Place", "110001", 28.6304, 77.2177, "logistics123"),
         # Admin / Ministry
-        ("Ministry of Agriculture & Farmers Welfare", "9999999999", "admin", "Delhi", "New Delhi", "Krishi Bhawan", "110001", 28.6190, 77.2135, "admin123"),
+        ("Ministry of Agriculture & Farmers Welfare", "9999999999", "admin", "Delhi", "New Delhi", "Krishi Bhawan", "Room 210, Krishi Bhawan, Dr. Rajendra Prasad Road", "110001", 28.6190, 77.2135, "admin123"),
     ]
 
     for u in sample_users:
         cursor.execute("""
-            INSERT OR IGNORE INTO users (name, mobile, role, state, district, village, pincode, latitude, longitude, password)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO users (name, mobile, role, state, district, village, address, pincode, latitude, longitude, password)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, u)
 
-    # --- Products & Slab Pricing ---
-    # Products format: (farmer_id, farmer_name, mobile, state, district, name, category, variety, grade, qty, unit, image_url, description, slabs)
-    # slabs: [(min_q, max_q, price), ...]
-    sample_products = [
-        (
-            1, "Murugan Raman", "9840123456", "Tamil Nadu", "Chennai",
-            "Ponni Raw Rice (Organic)", "Grains", "Thanjavur Ponni", "Grade A", 1200, "kg",
-            "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
-            "Traditionally cultivated aged organic Ponni rice, low GI, directly harvested from delta fields.",
-            [(0, 10, 58.0), (10, 50, 50.0), (50, None, 44.0)]
-        ),
-        (
-            1, "Murugan Raman", "9840123456", "Tamil Nadu", "Chennai",
-            "Country Small Onions (Shallots)", "Vegetables", "Sambar Vengayam", "Grade A", 450, "kg",
-            "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=600&auto=format&fit=crop&q=80",
-            "Fresh pungent shallots ideal for traditional South Indian culinary dishes and medicinal value.",
-            [(0, 5, 65.0), (5, 25, 55.0), (25, None, 48.0)]
-        ),
-        (
-            2, "Dnyaneshwar Patil", "9822345678", "Maharashtra", "Nashik",
-            "Nashik Red Onions", "Vegetables", "Garwa Winter Crop", "Export", 3500, "kg",
-            "https://images.unsplash.com/photo-1508747703725-719777637510?w=600&auto=format&fit=crop&q=80",
-            "World famous Nashik high-shelf-life onions, graded, sorted, and naturally cured.",
-            [(0, 20, 32.0), (20, 100, 26.0), (100, None, 21.5)]
-        ),
-        (
-            2, "Dnyaneshwar Patil", "9822345678", "Maharashtra", "Nashik",
-            "Thompson Seedless Grapes", "Fruits", "Table Variety", "Grade A", 800, "kg",
-            "https://images.unsplash.com/photo-1596363505729-4190a9506133?w=600&auto=format&fit=crop&q=80",
-            "Crisp, sweet export quality seedless green grapes with high brix sweetness.",
-            [(0, 10, 95.0), (10, 40, 80.0), (40, None, 68.0)]
-        ),
-        (
-            3, "Gurpreet Singh", "9814567890", "Punjab", "Ludhiana",
-            "1121 Traditional Basmati Rice", "Grains", "Pusa 1121 Long Grain", "Export", 5000, "kg",
-            "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=600&auto=format&fit=crop&q=80",
-            "Extra long aromatic Basmati grains, naturally aged for 18 months, royal aroma.",
-            [(0, 15, 110.0), (15, 50, 95.0), (50, None, 82.0)]
-        ),
-        (
-            3, "Gurpreet Singh", "9814567890", "Punjab", "Ludhiana",
-            "Sharbati Golden Wheat", "Grains", "Sharbati C-306", "Grade A", 4000, "kg",
-            "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80",
-            "Golden heavy grains of premium Sharbati wheat, makes super soft chapatis.",
-            [(0, 25, 42.0), (25, 100, 36.0), (100, None, 31.0)]
-        ),
-        (
-            4, "Basavaraj Gowda", "9845678901", "Karnataka", "Mysuru",
-            "Mysore Nanjangud Rasabale Banana", "Fruits", "GI Tagged Rasabale", "Grade A", 600, "kg",
-            "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&auto=format&fit=crop&q=80",
-            "Geographical Indication (GI) tagged exotic sweet scented dessert banana grown on banks of Kapila river.",
-            [(0, 5, 80.0), (5, 20, 70.0), (20, None, 58.0)]
-        ),
-    ]
-
-    for p in sample_products:
-        cursor.execute("""
-            INSERT INTO products (farmer_id, farmer_name, farmer_mobile, farmer_state, farmer_district, name, category, variety, grade, available_quantity, unit, image_url, description)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12]))
-        prod_id = cursor.lastrowid
-        for slab in p[13]:
-            cursor.execute("""
-                INSERT INTO price_slabs (product_id, min_quantity, max_quantity, price_per_kg)
-                VALUES (?, ?, ?, ?)
-            """, (prod_id, slab[0], slab[1], slab[2]))
-
-    # Base catalog seeded without demo orders or tickets
+    # Note: Dummy marketplace products have been completely removed as per requirement.
+    # Only registered farmers can add authentic products to the marketplace.
     conn.commit()
 
 # Optional Firebase Adapter Helper

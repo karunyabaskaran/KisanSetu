@@ -147,6 +147,13 @@ const api = {
         });
     },
 
+    async createCartOrder(payload) {
+        return this.request("/api/orders/create-cart-order", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+
     async getOrders(params = {}) {
         const query = new URLSearchParams(params).toString();
         return this.request(`/api/orders/list?${query}`);
@@ -248,6 +255,20 @@ const api = {
 
     async acceptLogisticsOrder(payload) {
         return this.request("/api/logistics/accept-order", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async acceptBuyerConsignment(payload) {
+        return this.request("/api/logistics/accept-buyer-consignment", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
+
+    async deliverBuyerConsignment(payload) {
+        return this.request("/api/logistics/deliver-buyer-consignment", {
             method: "POST",
             body: JSON.stringify(payload)
         });

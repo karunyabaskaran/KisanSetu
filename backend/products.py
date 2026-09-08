@@ -30,31 +30,91 @@ STATE_ADJACENCY = {
     "Assam": ["West Bengal", "Meghalaya", "Arunachal Pradesh", "Nagaland", "Manipur", "Mizoram", "Tripura"]
 }
 
+CROP_IMAGE_MAP = {
+    "rice": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
+    "paddy": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
+    "ponni": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
+    "basmati": "https://images.unsplash.com/photo-1536304993881-ff6e9eefa2a6?w=600&auto=format&fit=crop&q=80",
+    "wheat": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80",
+    "sharbati": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80",
+    "atta": "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80",
+    "onion": "https://images.unsplash.com/photo-1508747703725-719777637510?w=600&auto=format&fit=crop&q=80",
+    "shallot": "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=600&auto=format&fit=crop&q=80",
+    "vengayam": "https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=600&auto=format&fit=crop&q=80",
+    "pyaz": "https://images.unsplash.com/photo-1508747703725-719777637510?w=600&auto=format&fit=crop&q=80",
+    "tomato": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80",
+    "thakkali": "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80",
+    "potato": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80",
+    "alu": "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80",
+    "banana": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&auto=format&fit=crop&q=80",
+    "rasabale": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=600&auto=format&fit=crop&q=80",
+    "grape": "https://images.unsplash.com/photo-1596363505729-4190a9506133?w=600&auto=format&fit=crop&q=80",
+    "angoor": "https://images.unsplash.com/photo-1596363505729-4190a9506133?w=600&auto=format&fit=crop&q=80",
+    "mango": "https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&auto=format&fit=crop&q=80",
+    "apple": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600&auto=format&fit=crop&q=80",
+    "chilli": "https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=600&auto=format&fit=crop&q=80",
+    "chili": "https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=600&auto=format&fit=crop&q=80",
+    "mirch": "https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=600&auto=format&fit=crop&q=80",
+    "turmeric": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&auto=format&fit=crop&q=80",
+    "haldi": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&auto=format&fit=crop&q=80",
+    "ginger": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&auto=format&fit=crop&q=80",
+    "garlic": "https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=600&auto=format&fit=crop&q=80",
+    "dal": "https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=600&auto=format&fit=crop&q=80",
+    "pulse": "https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=600&auto=format&fit=crop&q=80",
+    "lentil": "https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=600&auto=format&fit=crop&q=80",
+    "carrot": "https://images.unsplash.com/photo-1598170845058-32b9d6a5c317?w=600&auto=format&fit=crop&q=80",
+    "corn": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=600&auto=format&fit=crop&q=80",
+    "maize": "https://images.unsplash.com/photo-1551754655-cd27e38d2076?w=600&auto=format&fit=crop&q=80",
+    "cotton": "https://images.unsplash.com/photo-1594897030560-69279a6177b9?w=600&auto=format&fit=crop&q=80",
+    "sugarcane": "https://images.unsplash.com/photo-1592318730999-52e4284d79ba?w=600&auto=format&fit=crop&q=80",
+    "coconut": "https://images.unsplash.com/photo-1544376798-89aa6b82c6cd?w=600&auto=format&fit=crop&q=80"
+}
+
+def detect_crop_image(crop_name, category="Grains"):
+    """
+    Detects realistic agricultural display image based on crop keyword.
+    Falls back to category default if crop keyword is unknown.
+    """
+    lower_name = (crop_name or "").lower()
+    for key, img_url in CROP_IMAGE_MAP.items():
+        if key in lower_name:
+            return img_url
+
+    category_defaults = {
+        "Grains": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
+        "Vegetables": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600&auto=format&fit=crop&q=80",
+        "Fruits": "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=600&auto=format&fit=crop&q=80",
+        "Pulses": "https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=600&auto=format&fit=crop&q=80",
+        "Spices": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=600&auto=format&fit=crop&q=80"
+    }
+    return category_defaults.get(category, category_defaults["Grains"])
+
 def calculate_slab_price(slabs, quantity):
     """
     Finds the active price per kg for a given order quantity based on farmer's configured slabs.
-    slabs is a list of dicts/tuples: [{'min_quantity': 0, 'max_quantity': 10, 'price_per_kg': 40}, ...]
+    Ensures strict numerical comparisons across min_quantity, max_quantity, and quantity.
     """
     if not slabs:
         return 0.0
 
-    # Sort slabs by min_quantity
-    sorted_slabs = sorted(slabs, key=lambda s: s["min_quantity"])
-    chosen_price = sorted_slabs[0]["price_per_kg"]
+    qty = float(quantity)
+    # Sort slabs by min_quantity numerically
+    sorted_slabs = sorted(slabs, key=lambda s: float(s.get("min_quantity", 0)))
+    chosen_price = float(sorted_slabs[0].get("price_per_kg", 0))
 
     for slab in sorted_slabs:
-        min_q = slab["min_quantity"]
-        max_q = slab["max_quantity"]
+        min_q = float(slab.get("min_quantity", 0))
+        raw_max = slab.get("max_quantity")
+        max_q = float(raw_max) if raw_max is not None and str(raw_max).strip() != "" else None
 
-        if quantity >= min_q:
-            if max_q is None or quantity <= max_q:
-                chosen_price = slab["price_per_kg"]
+        if qty >= min_q:
+            if max_q is None or qty <= max_q:
+                chosen_price = float(slab.get("price_per_kg", 0))
                 break
             else:
-                # If quantity exceeds max_q of this tier, default to this or higher tier
-                chosen_price = slab["price_per_kg"]
+                chosen_price = float(slab.get("price_per_kg", 0))
 
-    return chosen_price
+    return round(chosen_price, 2)
 
 @products_bp.route("/list", methods=["GET"])
 def list_products():
@@ -175,23 +235,20 @@ def add_product():
     conn = get_db()
     cursor = conn.cursor()
 
-    # Get farmer details
-    cursor.execute("SELECT name, mobile, state, district FROM users WHERE id = ?", (farmer_id,))
+    # Get farmer details and enforce registered farmer role
+    cursor.execute("SELECT id, role, name, mobile, state, district FROM users WHERE id = ?", (farmer_id,))
     farmer = cursor.fetchone()
     if not farmer:
         conn.close()
         return jsonify({"success": False, "message": "Invalid farmer ID."}), 404
 
-    # Default fallback image based on category
+    if farmer["role"] != "farmer":
+        conn.close()
+        return jsonify({"success": False, "message": "Access restricted: Only registered Farmers can add products to the marketplace."}), 403
+
+    # Automatic detection of product display image if not explicitly provided
     if not image_url:
-        defaults = {
-            "Grains": "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80",
-            "Vegetables": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600&auto=format&fit=crop&q=80",
-            "Fruits": "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=600&auto=format&fit=crop&q=80",
-            "Pulses": "https://images.unsplash.com/photo-1515543904379-3d757afe72e4?w=600&auto=format&fit=crop&q=80",
-            "Spices": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=600&auto=format&fit=crop&q=80"
-        }
-        image_url = defaults.get(category, defaults["Grains"])
+        image_url = detect_crop_image(name, category)
 
     try:
         cursor.execute("""
@@ -215,7 +272,12 @@ def add_product():
         return jsonify({
             "success": True,
             "message": f"Produce '{name}' listed with {len(slabs)} slab pricing tier(s)!",
-            "product_id": prod_id
+            "product_id": prod_id,
+            "product": {
+                "id": prod_id,
+                "name": name,
+                "image_url": image_url
+            }
         })
     except Exception as e:
         conn.close()
