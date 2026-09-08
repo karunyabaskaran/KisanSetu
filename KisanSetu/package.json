@@ -1,0 +1,9 @@
+{
+  "name": "kisansetu",
+  "version": "1.0.0",
+  "description": "KisanSetu Agri-Commerce Platform",
+  "scripts": {
+    "build": "pip install -r requirements.txt",
+    "start": "gunicorn app:app --workers 4 --threads 2"
+  }
+}
