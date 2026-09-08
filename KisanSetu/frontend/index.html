@@ -183,12 +183,16 @@
                     </div>
                 </div>
                 <p class="portal-card-desc" data-i18n="portal_desc_admin">
-                    Check prices across states, view state/district farmers and activities, and solve member problems
-                    fairly.
+                    Monitor agricultural markets across regions, track farmer and buyer activities, oversee pricing and
+                    logistics, and resolve issues through a centralized platform.
                 </p>
                 <div class="portal-card-actions">
                     <button class="btn btn-admin w-100" onclick="showLoginModal('admin')" data-i18n="btn_signin_admin">
                         🔑 Ministry Official Sign In
+                    </button>
+                    <button class="btn btn-outline-admin w-100" onclick="showRegisterModal('admin')"
+                        data-i18n="btn_register_admin">
+                        📝 Register as Ministry Official
                     </button>
                 </div>
             </div>
@@ -1294,6 +1298,10 @@
                         <label data-i18n="lbl_password">Password *</label>
                         <input type="password" id="login_password" class="form-control" placeholder="••••••••" required>
                     </div>
+                    <div class="modal-switch-text">
+                        <span data-i18n="msg_no_account">Don't have an account?</span>
+                        <a href="javascript:void(0)" onclick="switchToRegisterFromLogin()" data-i18n="link_register_here">Register here</a>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-light" onclick="closeLoginModal()"
@@ -1315,12 +1323,15 @@
                 <div class="modal-body">
                     <div class="form-group">
                         <label data-i18n="lbl_register_as">I am registering as: *</label>
-                        <select id="reg_role" class="form-control" required>
-                            <option value="farmer" data-i18n="role_farmer">1.) Farmer / FPO</option>
-                            <option value="buyer" data-i18n="role_buyer">2.) Buyer / Bulk Buyer</option>
-                            <option value="logistics" data-i18n="role_logistics">3.) Logistics Partner</option>
-                            <option value="admin" data-i18n="role_admin">4.) Admin (Ministry)</option>
-                        </select>
+                        <div class="static-role-field static-role-farmer" id="reg_role_static_field">
+                            <span class="static-role-icon" id="reg_role_static_icon">👨‍🌾</span>
+                            <div class="static-role-info">
+                                <strong id="reg_role_static_title" data-i18n="role_farmer">Farmer / FPO</strong>
+                                <span class="static-role-subtitle">Selected Portal Access</span>
+                            </div>
+                            <span class="static-role-badge" id="reg_role_static_badge">Farmer Portal</span>
+                        </div>
+                        <input type="hidden" id="reg_role" value="farmer">
                     </div>
 
                     <div class="form-row-2">
@@ -1401,6 +1412,10 @@
                             <input type="password" id="reg_confirm_password" class="form-control" placeholder="••••••••"
                                 required>
                         </div>
+                    </div>
+                    <div class="modal-switch-text">
+                        <span data-i18n="msg_have_account">Already registered?</span>
+                        <a href="javascript:void(0)" onclick="switchToLoginFromRegister()" data-i18n="link_signin_here">Sign In here</a>
                     </div>
                 </div>
                 <div class="modal-footer">
