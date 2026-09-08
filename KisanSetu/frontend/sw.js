@@ -1,6 +1,6 @@
 // KisanSetu Advanced Service Worker - Full Mobile Offline & PWA Engine
-const CACHE_NAME = 'kisansetu-app-v3.1';
-const DATA_CACHE_NAME = 'kisansetu-data-v3.1';
+const CACHE_NAME = 'kisansetu-app-v3.2';
+const DATA_CACHE_NAME = 'kisansetu-data-v3.2';
 
 const STATIC_ASSETS = [
   '/',

@@ -804,3 +804,16 @@ window.addEventListener("languageChanged", () => {
         initLogisticsView();
     }
 });
+
+// Show / Hide Password Visibility Toggle
+window.togglePasswordVisibility = function(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isPass = input.type === "password";
+    input.type = isPass ? "text" : "password";
+    const icon = btn.querySelector(".eye-icon") || btn;
+    icon.textContent = isPass ? "🙈" : "👁️";
+    btn.setAttribute("aria-label", isPass ? "Hide password" : "Show password");
+    btn.title = isPass ? "Hide password" : "Show password";
+};
+

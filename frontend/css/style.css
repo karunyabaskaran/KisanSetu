@@ -1556,6 +1556,45 @@ a {
     box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
 }
 
+/* Password Input with Show/Hide Toggle */
+.password-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.password-input-wrap .form-control {
+    padding-right: 44px;
+}
+
+.btn-toggle-password {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    color: #64748b;
+    transition: all 0.2s ease;
+    user-select: none;
+    z-index: 2;
+}
+
+.btn-toggle-password:hover {
+    color: var(--primary-dark);
+    background: #f1f5f9;
+}
+
+
 /* Static Non-Editable Role Indicator */
 .static-role-field {
     display: flex;

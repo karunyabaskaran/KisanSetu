@@ -1342,7 +1342,12 @@
                     </div>
                     <div class="form-group">
                         <label data-i18n="lbl_password">Password *</label>
-                        <input type="password" id="login_password" class="form-control" placeholder="••••••••" required>
+                        <div class="password-input-wrap">
+                            <input type="password" id="login_password" class="form-control" placeholder="••••••••" required>
+                            <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('login_password', this)" title="Show / Hide Password" aria-label="Toggle password visibility">
+                                <span class="eye-icon">👁️</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="modal-switch-text">
                         <span data-i18n="msg_no_account">Don't have an account?</span>
@@ -1437,31 +1442,33 @@
                     </div>
 
                     <div class="form-group">
-                        <label data-i18n="lbl_complete_address">Street / Door No / Complete Address *</label>
+                        <label data-i18n="lbl_address">Address *</label>
                         <textarea id="reg_address" class="form-control" rows="2" placeholder="e.g. Plot No 42, Green Avenue, Main Road" required></textarea>
                     </div>
 
-                    <div class="form-row-2">
-                        <div class="form-group" id="villageFieldGroup">
-                            <label data-i18n="lbl_village">Village Name</label>
-                            <input type="text" id="reg_village" class="form-control" placeholder="e.g. Kovilambakkam">
-                        </div>
-                        <div class="form-group">
-                            <label data-i18n="lbl_pincode">Pincode *</label>
-                            <input type="text" id="reg_pincode" class="form-control" placeholder="e.g. 600129" required>
-                        </div>
+                    <div class="form-group">
+                        <label data-i18n="lbl_pincode">Pincode *</label>
+                        <input type="text" id="reg_pincode" class="form-control" placeholder="e.g. 600129" required>
                     </div>
 
                     <div class="form-row-2">
                         <div class="form-group">
                             <label data-i18n="lbl_password">Password *</label>
-                            <input type="password" id="reg_password" class="form-control" placeholder="••••••••"
-                                required>
+                            <div class="password-input-wrap">
+                                <input type="password" id="reg_password" class="form-control" placeholder="••••••••" required>
+                                <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('reg_password', this)" title="Show / Hide Password" aria-label="Toggle password visibility">
+                                    <span class="eye-icon">👁️</span>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label data-i18n="lbl_confirm_password">Confirm Password *</label>
-                            <input type="password" id="reg_confirm_password" class="form-control" placeholder="••••••••"
-                                required>
+                            <div class="password-input-wrap">
+                                <input type="password" id="reg_confirm_password" class="form-control" placeholder="••••••••" required>
+                                <button type="button" class="btn-toggle-password" onclick="togglePasswordVisibility('reg_confirm_password', this)" title="Show / Hide Password" aria-label="Toggle password visibility">
+                                    <span class="eye-icon">👁️</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-switch-text">

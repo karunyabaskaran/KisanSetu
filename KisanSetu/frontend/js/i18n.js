@@ -161,6 +161,8 @@ const TRANSLATIONS = {
         lbl_mobile: "Registered Mobile",
         lbl_state: "State",
         lbl_district: "District",
+        lbl_address: "Address",
+        lbl_complete_address: "Address",
         lbl_village: "Village Name",
         lbl_pincode: "Pincode",
         btn_save_profile: "Save Profile Changes",
@@ -485,6 +487,8 @@ const TRANSLATIONS = {
         lbl_mobile: "பதிவு செய்யப்பட்ட கைபேசி எண்",
         lbl_state: "மாநிலம்",
         lbl_district: "மாவட்டம்",
+        lbl_address: "முகவரி",
+        lbl_complete_address: "முகவரி",
         lbl_village: "கிராமம்",
         lbl_pincode: "அஞ்சல் குறியீடு (Pincode)",
         btn_save_profile: "சுயவிவர மாற்றங்களை சேமிக்கவும்",
@@ -802,6 +806,8 @@ const TRANSLATIONS = {
         lbl_mobile: "पंजीकृत मोबाइल",
         lbl_state: "राज्य",
         lbl_district: "जिला",
+        lbl_address: "पता",
+        lbl_complete_address: "पता",
         lbl_village: "गांव का नाम",
         lbl_pincode: "पिनकोड",
         btn_save_profile: "प्रोफाइल सुरक्षित करें",
@@ -1088,8 +1094,8 @@ class I18nService {
             }
         }
 
-        // Default to English
-        return (TRANSLATIONS["en"] && TRANSLATIONS["en"][key]) || key;
+        // Default to English or null
+        return (TRANSLATIONS["en"] && TRANSLATIONS["en"][key]) || null;
     }
 
     translateCrop(cropName) {
