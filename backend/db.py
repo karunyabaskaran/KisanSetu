@@ -36,6 +36,10 @@ def init_db():
         latitude REAL,
         longitude REAL,
         password TEXT NOT NULL,
+        status TEXT DEFAULT 'approved', -- 'pending', 'approved', 'rejected'
+        rejection_reason TEXT,
+        approved_at TIMESTAMP,
+        reviewed_by INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -123,6 +127,15 @@ def init_db():
     user_cols = {row["name"] for row in cursor.fetchall()}
     if "address" not in user_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN address TEXT")
+    if "status" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'approved'")
+    if "rejection_reason" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN rejection_reason TEXT")
+    if "approved_at" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN approved_at TIMESTAMP")
+    if "reviewed_by" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN reviewed_by INTEGER")
+    cursor.execute("UPDATE users SET status = 'approved' WHERE status IS NULL OR status = ''")
 
     # Dynamic schema migration for orders table
     cursor.execute("PRAGMA table_info(orders)")

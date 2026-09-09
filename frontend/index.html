@@ -193,10 +193,9 @@
                     <button class="btn btn-admin w-100" onclick="showLoginModal('admin')" data-i18n="btn_signin_admin">
                         🔑 Ministry Official Sign In
                     </button>
-                    <button class="btn btn-outline-admin w-100" onclick="showRegisterModal('admin')"
-                        data-i18n="btn_register_admin">
-                        📝 Register as Ministry Official
-                    </button>
+                    <div class="admin-auth-notice small text-muted text-center mt-2" style="font-size: 0.8rem;">
+                        🔒 Ministry credentials are authorized directly in the database.
+                    </div>
                 </div>
             </div>
         </div>
@@ -1087,6 +1086,11 @@
                 onclick="showAdminTab('directory')">
                 <span>🗺️</span> <span data-i18n="nav_admin_directory">State & District Directory</span>
             </button>
+            <button type="button" class="subnav-btn admin-tab-btn" data-tab="approvals"
+                onclick="showAdminTab('approvals')">
+                <span>📋</span> <span data-i18n="nav_admin_approvals">Farmer Approvals</span>
+                <span class="badge badge-warning ml-1" id="adminPendingBadge" style="display:none; font-size: 0.75rem; padding: 2px 7px; border-radius: 10px;">0</span>
+            </button>
             <button type="button" class="subnav-btn admin-tab-btn" data-tab="orders" onclick="showAdminTab('orders')">
                 <span>📦</span> <span data-i18n="nav_admin_orders">Nationwide Orders</span>
             </button>
@@ -1097,6 +1101,22 @@
             <button type="button" class="subnav-btn admin-tab-btn" data-tab="forecast"
                 onclick="showAdminTab('forecast')">
                 <span>📈</span> <span data-i18n="nav_admin_forecast">Price & Demand AI</span>
+            </button>
+        </div>
+
+        <!-- Admin Urgent Alert Banner for Pending Farmer Registrations -->
+        <div id="adminPendingAlertBanner" style="display: none; background: #fffbeb; border: 1px solid #fcd34d; border-left: 5px solid #f59e0b; padding: 14px 20px; border-radius: var(--radius-md, 8px); margin: 0 0 20px 0; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <span style="font-size: 1.8rem; line-height: 1;">⚠️</span>
+                <div>
+                    <strong style="color: #92400e; font-size: 0.98rem; display: block; margin-bottom: 2px;">Farmer Registration Applications Awaiting Review</strong>
+                    <div style="color: #78350f; font-size: 0.85rem;" id="adminPendingAlertText">
+                        There are pending farmer applications requiring your official approval before they can access the portal.
+                    </div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="showAdminTab('approvals')" style="white-space: nowrap; font-weight: 600; padding: 8px 16px;">
+                Review Applications &rarr;
             </button>
         </div>
 
@@ -1309,6 +1329,105 @@
                 </div>
             </div>
         </div>
+
+        <!-- 4.5 Farmer Registration Approvals Panel -->
+        <div class="admin-tab-panel" data-tab-panel="approvals">
+            <div class="content-card mb-4" id="adminApprovalsCard">
+                <div class="card-title-row">
+                    <div>
+                        <h3 data-i18n="title_farmer_approvals">📋 Farmer Registration Applications & Approval</h3>
+                        <p class="small text-muted" data-i18n="sub_farmer_approvals">Review newly registered farmers, verify farm credentials and GPS coordinates, and approve or reject portal access.</p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-light" onclick="AdminController.loadFarmerApprovals()">
+                        🔄 Refresh Applications
+                    </button>
+                </div>
+
+                <!-- KPI Counters Strip -->
+                <div class="admin-kpi-strip">
+                    <div class="admin-kpi-card" style="border-left: 4px solid #f59e0b;">
+                        <span class="admin-kpi-icon">⏳</span>
+                        <div>
+                            <div class="admin-kpi-label">Pending Review</div>
+                            <div class="admin-kpi-val text-warning" id="kpiPendingApprovals">0</div>
+                        </div>
+                    </div>
+                    <div class="admin-kpi-card" style="border-left: 4px solid #16a34a;">
+                        <span class="admin-kpi-icon">✅</span>
+                        <div>
+                            <div class="admin-kpi-label">Approved Farmers</div>
+                            <div class="admin-kpi-val text-success" id="kpiApprovedFarmers">0</div>
+                        </div>
+                    </div>
+                    <div class="admin-kpi-card" style="border-left: 4px solid #dc2626;">
+                        <span class="admin-kpi-icon">❌</span>
+                        <div>
+                            <div class="admin-kpi-label">Rejected Applications</div>
+                            <div class="admin-kpi-val text-danger" id="kpiRejectedFarmers">0</div>
+                        </div>
+                    </div>
+                    <div class="admin-kpi-card" style="border-left: 4px solid #2563eb;">
+                        <span class="admin-kpi-icon">🌾</span>
+                        <div>
+                            <div class="admin-kpi-label">Total Farmers</div>
+                            <div class="admin-kpi-val text-primary" id="kpiTotalFarmersApps">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Approval Filter Tabs & Search -->
+                <div class="admin-directory-controls">
+                    <div class="directory-filter-row">
+                        <label class="small font-weight-bold mb-0 mr-2">Filter Applications:</label>
+                        <div class="directory-role-tabs" id="adminApprovalStatusTabs">
+                            <button type="button" class="dir-role-btn active" data-status="pending" onclick="AdminController.setApprovalStatusFilter('pending')">
+                                <span>⏳</span> <span>Pending Review</span>
+                                <span class="dir-role-count" id="badgePendingCount">0</span>
+                            </button>
+                            <button type="button" class="dir-role-btn" data-status="approved" onclick="AdminController.setApprovalStatusFilter('approved')">
+                                <span>✅</span> <span>Approved</span>
+                                <span class="dir-role-count" id="badgeApprovedCount">0</span>
+                            </button>
+                            <button type="button" class="dir-role-btn" data-status="rejected" onclick="AdminController.setApprovalStatusFilter('rejected')">
+                                <span>❌</span> <span>Rejected</span>
+                                <span class="dir-role-count" id="badgeRejectedCount">0</span>
+                            </button>
+                            <button type="button" class="dir-role-btn" data-status="all" onclick="AdminController.setApprovalStatusFilter('all')">
+                                <span>👥</span> <span>All Applications</span>
+                                <span class="dir-role-count" id="badgeAllAppsCount">0</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="directory-inputs-row" style="margin-top: 10px;">
+                        <div class="dir-search-wrap" style="flex: 1;">
+                            <label class="small text-muted mb-1">Search Farmer:</label>
+                            <input type="text" id="adminApprovalSearchInput" class="form-control"
+                                placeholder="Search by name, mobile, district, village, or state..."
+                                oninput="AdminController.debounceApprovalSearch()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Applications Table -->
+                <div class="table-responsive">
+                    <table class="kisansetu-table">
+                        <thead>
+                            <tr>
+                                <th>Farmer Name & Contact</th>
+                                <th>Location & Address</th>
+                                <th>GPS Coordinates</th>
+                                <th>Applied On</th>
+                                <th>Application Status</th>
+                                <th>Ministry Decision</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminApprovalsTableBody">
+                            <!-- Populated dynamically via AdminController.loadFarmerApprovals() -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- ====================================================================
@@ -1349,9 +1468,12 @@
                             </button>
                         </div>
                     </div>
-                    <div class="modal-switch-text">
+                    <div class="modal-switch-text" id="loginModalSwitchText">
                         <span data-i18n="msg_no_account">Don't have an account?</span>
                         <a href="javascript:void(0)" onclick="switchToRegisterFromLogin()" data-i18n="link_register_here">Register here</a>
+                    </div>
+                    <div class="modal-admin-notice small text-muted text-center" id="loginModalAdminNotice" style="display: none; padding: 8px 0; font-size: 0.83rem;">
+                        🔒 Ministry credentials are authorized directly in the database.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1482,6 +1604,34 @@
                     <button type="submit" class="btn btn-primary" data-i18n="register_btn">Register Account</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Farmer Rejection Reason Modal -->
+    <div id="rejectFarmerModal" class="modal-backdrop">
+        <div class="modal-content-card" style="max-width: 500px;">
+            <div class="modal-header" style="background: #991b1b; color: #ffffff;">
+                <h3 style="color: #ffffff; margin: 0;">❌ Reject Farmer Application</h3>
+                <button type="button" class="modal-close-btn" style="color: #ffffff;" onclick="closeRejectFarmerModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <p class="text-muted small mb-3">
+                    Please provide the justification for rejecting this farmer registration. This official remark will be displayed to the applicant if they attempt to sign in.
+                </p>
+                <input type="hidden" id="rejectFarmerUserId">
+                <div class="form-group mb-3">
+                    <label class="font-weight-bold mb-1">Farmer Name:</label>
+                    <div id="rejectFarmerNameDisplay" class="text-dark font-weight-bold">Murugan Raman</div>
+                </div>
+                <div class="form-group mb-2">
+                    <label class="font-weight-bold mb-1">Rejection Reason / Remarks *</label>
+                    <textarea id="rejectFarmerReason" class="form-control" rows="3" placeholder="e.g. Invalid land ownership details / GPS coordinates mismatch / Duplicate registration"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-light" onclick="closeRejectFarmerModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="AdminController.confirmRejectFarmer()">Confirm Rejection</button>
+            </div>
         </div>
     </div>
 

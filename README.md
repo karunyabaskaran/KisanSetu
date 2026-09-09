@@ -49,11 +49,48 @@
 - `backend/logistics_engine.py`: Dedicated Python module with distance calculation, freight estimation, and placeholder function `custom_route_optimization(origin, destination, waypoints)` where you can plug in custom routing algorithms.
 - `frontend/js/logistics_hook.js`: Dedicated JavaScript hook with `LogisticsHook.renderCustomTrackingUI` and `calculateRoute` functions ready for your custom telemetry or map rendering.
 
-### 5. Ministry of Agriculture Admin Portal
+### 5. Ministry of Agriculture Admin Portal & Governance
+- **Farmer Registration Applications & Approval Desk**:
+  - All new farmer registrations enter a `pending` state and cannot access the portal until approved.
+  - The Admin Dashboard features an **urgent pending applications banner** and real-time pending counters.
+  - Ministry officials review each applicant's credentials, address, village, and pinpoint GPS coordinates on Google Maps, and can **Approve** or **Reject** with official remarks.
+  - Approved farmers can immediately log in; rejected applicants receive specific administrative remarks upon attempting to sign in.
+- **Admin Authentication Security (No Self-Registration)**:
+  - Public registration for the Admin (Ministry) role is completely disabled in the UI and API (`HTTP 403 Forbidden`).
+  - Ministry administrator credentials must be manually provisioned directly in the database by developers.
 - **Tribunal Grievance Resolution Desk**: Ministry officials inspect farmer and buyer complaints, review attached proofs, and record official resolutions.
 - **AI Demand Forecasting Radar**: Powered by Scikit-learn Random Forest model predicting commodity demand indices and fair pricing baselines.
 
 ---
+
+## 🛠️ Developer Guide: Provisioning Ministry Admin Credentials
+
+Per security policies, administrator accounts cannot be self-registered through the public portal. When new administrator credentials are required, a developer must provision them directly in the database.
+
+### Method 1: Using the Built-in CLI Tool (Recommended)
+
+Run the CLI command from the repository root:
+
+```bash
+# Add a new Ministry Administrator
+python -m backend.manage_admin add --name "Dr. P. Sharma" --mobile "9876543210" --password "SecureAdminPass123" --state "Delhi" --district "New Delhi"
+
+# List all current Ministry Administrators
+python -m backend.manage_admin list
+
+# Run interactive provisioning wizard
+python -m backend.manage_admin
+```
+
+### Method 2: Direct Database Insertion (SQLite)
+
+```sql
+INSERT INTO users (
+    name, mobile, role, state, district, village, address, pincode, password, status
+) VALUES (
+    'Official Admin', '9876543210', 'admin', 'Delhi', 'New Delhi', 'Krishi Bhawan', 'Krishi Bhawan, Rajendra Prasad Road', '110001', 'SecureAdminPass123', 'approved'
+);
+```
 
 ## 🚀 How to Run Locally
 

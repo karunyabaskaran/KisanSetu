@@ -15,10 +15,14 @@ const AdminController = {
     directorySearch: "",
     searchDebounceTimer: null,
     stateDistrictsMap: {},
+    approvalStatusFilter: "pending",
+    approvalSearchQuery: "",
+    approvalDebounceTimer: null,
 
     init() {
         this.loadDirectoryLocations();
         this.loadUserDirectory();
+        this.loadFarmerApprovals();
         this.loadGrievances();
         this.loadNationalOrders();
         this.loadAIForecasts();
@@ -213,7 +217,13 @@ const AdminController = {
                         <td>${u.village || '—'}</td>
                         <td>${activityPill}</td>
                         <td class="small text-muted">${u.created_at ? u.created_at.split(' ')[0] : 'Active'}</td>
-                        <td><span class="badge badge-success">✓ Verified</span></td>
+                        <td>
+                            ${u.status === 'pending'
+                                ? '<span class="badge badge-warning">⏳ Pending</span>'
+                                : (u.status === 'rejected'
+                                    ? '<span class="badge badge-danger">❌ Rejected</span>'
+                                    : '<span class="badge badge-success">✓ Verified</span>')}
+                        </td>
                     </tr>
                 `;
             }).join('');
@@ -382,13 +392,224 @@ const AdminController = {
         } catch (err) {
             container.innerHTML = `<p class="text-muted">${i18n.t("ai_error_hint")}</p>`;
         }
+    },
+
+    // --- Farmer Registration Applications & Approvals ---
+    setApprovalStatusFilter(status) {
+        this.approvalStatusFilter = status;
+        document.querySelectorAll("#adminApprovalStatusTabs .dir-role-btn").forEach(btn => {
+            btn.classList.toggle("active", btn.getAttribute("data-status") === status);
+        });
+        this.loadFarmerApprovals();
+    },
+
+    debounceApprovalSearch() {
+        clearTimeout(this.approvalDebounceTimer);
+        this.approvalDebounceTimer = setTimeout(() => {
+            const input = document.getElementById("adminApprovalSearchInput");
+            this.approvalSearchQuery = input ? input.value.trim() : "";
+            this.loadFarmerApprovals();
+        }, 300);
+    },
+
+    async loadFarmerApprovals() {
+        const tbody = document.getElementById("adminApprovalsTableBody");
+        if (!tbody) return;
+
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">🔍 Loading farmer registration applications...</td></tr>`;
+
+        try {
+            const params = {
+                status: this.approvalStatusFilter,
+                search: this.approvalSearchQuery
+            };
+            const res = await api.getFarmerApplications(params);
+            const applications = res.applications || [];
+            const summary = res.summary || {};
+
+            // Update KPI cards
+            const kpiPending = document.getElementById("kpiPendingApprovals");
+            const kpiApproved = document.getElementById("kpiApprovedFarmers");
+            const kpiRejected = document.getElementById("kpiRejectedFarmers");
+            const kpiTotal = document.getElementById("kpiTotalFarmersApps");
+            if (kpiPending) kpiPending.textContent = summary.pending_count || 0;
+            if (kpiApproved) kpiApproved.textContent = summary.approved_count || 0;
+            if (kpiRejected) kpiRejected.textContent = summary.rejected_count || 0;
+            if (kpiTotal) kpiTotal.textContent = summary.total_farmers || 0;
+
+            // Update Filter Badges
+            const badgePending = document.getElementById("badgePendingCount");
+            const badgeApproved = document.getElementById("badgeApprovedCount");
+            const badgeRejected = document.getElementById("badgeRejectedCount");
+            const badgeAll = document.getElementById("badgeAllAppsCount");
+            if (badgePending) badgePending.textContent = summary.pending_count || 0;
+            if (badgeApproved) badgeApproved.textContent = summary.approved_count || 0;
+            if (badgeRejected) badgeRejected.textContent = summary.rejected_count || 0;
+            if (badgeAll) badgeAll.textContent = summary.total_farmers || 0;
+
+            // Subnav Header Badge
+            const subnavBadge = document.getElementById("adminPendingBadge");
+            if (subnavBadge) {
+                const count = summary.pending_count || 0;
+                if (count > 0) {
+                    subnavBadge.textContent = count;
+                    subnavBadge.style.display = "inline-block";
+                } else {
+                    subnavBadge.style.display = "none";
+                }
+            }
+
+            // Urgent Admin Alert Banner
+            const alertBanner = document.getElementById("adminPendingAlertBanner");
+            const alertText = document.getElementById("adminPendingAlertText");
+            if (alertBanner) {
+                const count = summary.pending_count || 0;
+                if (count > 0) {
+                    alertBanner.style.display = "flex";
+                    if (alertText) {
+                        alertText.textContent = `There ${count === 1 ? 'is 1 farmer registration application' : `are ${count} farmer registration applications`} awaiting official Ministry review and approval before they can access the portal.`;
+                    }
+                } else {
+                    alertBanner.style.display = "none";
+                }
+            }
+
+            if (applications.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">
+                            No farmer applications found matching status: "${this.approvalStatusFilter}".
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = applications.map(app => {
+                let statusBadge = "";
+                let actionButtons = "";
+                const safeName = (app.name || "").replace(/'/g, "\\'");
+
+                if (app.status === "pending") {
+                    statusBadge = `<span class="badge badge-warning" style="font-size: 0.82rem; padding: 4px 8px;">⏳ Pending Approval</span>`;
+                    actionButtons = `
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" class="btn btn-sm btn-success" onclick="AdminController.approveFarmer(${app.id}, '${safeName}')" title="Grant immediate portal login privileges">
+                                ✅ Approve
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="AdminController.openRejectModal(${app.id}, '${safeName}')" title="Reject registration with reason">
+                                ❌ Reject
+                            </button>
+                        </div>
+                    `;
+                } else if (app.status === "approved") {
+                    statusBadge = `
+                        <span class="badge badge-success" style="font-size: 0.82rem; padding: 4px 8px;">✅ Approved</span>
+                        ${app.approved_at ? `<div class="small text-muted mt-1">On: ${app.approved_at}</div>` : ''}
+                    `;
+                    actionButtons = `
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="AdminController.openRejectModal(${app.id}, '${safeName}')">
+                            Revoke / Reject
+                        </button>
+                    `;
+                } else if (app.status === "rejected") {
+                    statusBadge = `
+                        <span class="badge badge-danger" style="font-size: 0.82rem; padding: 4px 8px;">❌ Rejected</span>
+                        ${app.rejection_reason ? `<div class="small text-danger mt-1" style="max-width: 200px;">Reason: ${app.rejection_reason}</div>` : ''}
+                    `;
+                    actionButtons = `
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick="AdminController.approveFarmer(${app.id}, '${safeName}')">
+                            Re-Approve
+                        </button>
+                    `;
+                }
+
+                const gpsDisplay = (app.latitude && app.longitude)
+                    ? `<a href="https://www.google.com/maps?q=${app.latitude},${app.longitude}" target="_blank" class="small text-primary" style="text-decoration: underline;" title="View exact farm location on map">
+                        📍 ${Number(app.latitude).toFixed(4)}, ${Number(app.longitude).toFixed(4)} ↗
+                       </a>`
+                    : `<span class="text-muted small">Not provided</span>`;
+
+                return `
+                    <tr class="${app.status === 'pending' ? 'table-row-urgent' : ''}">
+                        <td>
+                            <strong>${app.name}</strong><br>
+                            <span class="small text-muted">📱 ${app.mobile} (ID: #${app.id})</span>
+                        </td>
+                        <td>
+                            <strong>${app.village || '—'}, ${app.district || '—'}</strong><br>
+                            <span class="small text-muted">${app.state || '—'} - ${app.pincode || ''}</span><br>
+                            <span class="small text-muted" style="font-style: italic;">${app.address || ''}</span>
+                        </td>
+                        <td>${gpsDisplay}</td>
+                        <td class="small text-muted">${app.created_at ? app.created_at.split('.')[0] : '—'}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actionButtons}</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-danger py-4 text-center">Failed to load farmer applications: ${err.message}</td></tr>`;
+        }
+    },
+
+    async approveFarmer(userId, farmerName) {
+        if (!confirm(`Are you sure you want to approve farmer "${farmerName}"? This will allow them to immediately log into KisanSetu.`)) {
+            return;
+        }
+
+        try {
+            const res = await api.reviewFarmerApplication(userId, { action: "approve" });
+            showToast(res.message || `Farmer ${farmerName} approved successfully!`, "success");
+            this.loadFarmerApprovals();
+            this.loadUserDirectory();
+        } catch (err) {
+            showToast(err.message || "Approval failed", "error");
+        }
+    },
+
+    openRejectModal(userId, farmerName) {
+        const idInput = document.getElementById("rejectFarmerUserId");
+        const nameDisplay = document.getElementById("rejectFarmerNameDisplay");
+        const reasonInput = document.getElementById("rejectFarmerReason");
+        const modal = document.getElementById("rejectFarmerModal");
+
+        if (idInput) idInput.value = userId;
+        if (nameDisplay) nameDisplay.textContent = `${farmerName} (ID #${userId})`;
+        if (reasonInput) reasonInput.value = "";
+        if (modal) modal.classList.add("active");
+    },
+
+    async confirmRejectFarmer() {
+        const idInput = document.getElementById("rejectFarmerUserId");
+        const reasonInput = document.getElementById("rejectFarmerReason");
+        const userId = idInput ? idInput.value : null;
+        const reason = reasonInput ? reasonInput.value.trim() : "";
+
+        if (!userId) return;
+
+        try {
+            const res = await api.reviewFarmerApplication(userId, { action: "reject", reason });
+            showToast(res.message || "Farmer application rejected", "info");
+            closeRejectFarmerModal();
+            this.loadFarmerApprovals();
+            this.loadUserDirectory();
+        } catch (err) {
+            showToast(err.message || "Rejection failed", "error");
+        }
     }
+};
+
+window.closeRejectFarmerModal = function() {
+    const modal = document.getElementById("rejectFarmerModal");
+    if (modal) modal.classList.remove("active");
 };
 
 // Re-render dynamic admin sections on language change
 window.addEventListener("languageChanged", () => {
     AdminController.loadDirectoryLocations();
     AdminController.loadUserDirectory();
+    AdminController.loadFarmerApprovals();
     AdminController.loadGrievances();
     AdminController.loadNationalOrders();
     AdminController.loadAIForecasts();

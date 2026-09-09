@@ -57,6 +57,12 @@ def register():
     latitude = data.get("latitude")
     longitude = data.get("longitude")
 
+    if role == "admin":
+        return jsonify({
+            "success": False,
+            "message": "Admin registration through portal is disabled. Ministry administrator credentials must be provisioned directly in the database."
+        }), 403
+
     if not name or not mobile or not password:
         return jsonify({"success": False, "message": "Name, mobile, and password are required"}), 400
 
@@ -76,19 +82,29 @@ def register():
         return jsonify({"success": False, "message": f"An account with mobile {mobile} already exists."}), 400
 
     try:
+        status = "pending" if role == "farmer" else "approved"
         cursor.execute("""
-            INSERT INTO users (name, mobile, role, state, district, village, address, pincode, latitude, longitude, password)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (name, mobile, role, state, district, village, address, pincode, latitude, longitude, password))
+            INSERT INTO users (name, mobile, role, state, district, village, address, pincode, latitude, longitude, password, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (name, mobile, role, state, district, village, address, pincode, latitude, longitude, password, status))
         conn.commit()
         user_id = cursor.lastrowid
 
-        cursor.execute("SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude FROM users WHERE id = ?", (user_id,))
+        cursor.execute("SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude, status, created_at FROM users WHERE id = ?", (user_id,))
         user_row = dict(cursor.fetchone())
         conn.close()
 
+        if role == "farmer":
+            return jsonify({
+                "success": True,
+                "status": "pending",
+                "message": f"Registration application submitted successfully! Your account is pending Ministry Admin review and approval. You can sign in once approved.",
+                "user": user_row
+            })
+
         return jsonify({
             "success": True,
+            "status": "approved",
             "message": f"Welcome to KisanSetu, {name}! Registered successfully as {role.capitalize()}.",
             "user": user_row
         })
@@ -124,6 +140,22 @@ def login():
 
     user_dict = dict(user)
     del user_dict["password"]
+
+    user_status = user_dict.get("status") or "approved"
+    if user_dict.get("role") == "farmer":
+        if user_status == "pending":
+            return jsonify({
+                "success": False,
+                "status": "pending",
+                "message": "Your farmer registration is currently pending Ministry approval. Please wait for an administrator to review and approve your application."
+            }), 403
+        elif user_status == "rejected":
+            reason = user_dict.get("rejection_reason") or "Application criteria not met"
+            return jsonify({
+                "success": False,
+                "status": "rejected",
+                "message": f"Your registration application was rejected by the Administrator. Reason: {reason}."
+            }), 403
 
     return jsonify({
         "success": True,

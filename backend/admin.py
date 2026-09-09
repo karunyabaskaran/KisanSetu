@@ -5,6 +5,7 @@ Endpoints:
 2. GET /api/admin/users/list - Filter users by role, state, district, and search query, enriched with live activity metrics
 """
 
+import datetime
 from flask import Blueprint, request, jsonify
 from backend.db import get_db
 
@@ -62,7 +63,7 @@ def get_users_list():
 
     # Base query
     query = """
-        SELECT id, name, mobile, role, state, district, village, pincode, latitude, longitude, created_at 
+        SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude, status, rejection_reason, approved_at, created_at 
         FROM users 
         WHERE 1=1
     """
@@ -181,4 +182,120 @@ def get_users_list():
             "filtered_count": len(users_with_activity)
         },
         "users": users_with_activity
+    })
+
+@admin_bp.route("/farmer-applications", methods=["GET"])
+def get_farmer_applications():
+    """
+    Returns list of farmer applications with review status (pending, approved, rejected, all).
+    Enables Ministry officials to inspect details, verify coordinates, and approve/reject.
+    """
+    status = request.args.get("status", "pending").strip().lower()
+    search = request.args.get("search", "").strip().lower()
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Get counts across all statuses for farmers
+    cursor.execute("SELECT status, COUNT(*) as cnt FROM users WHERE role = 'farmer' GROUP BY status")
+    status_counts = {}
+    for r in cursor.fetchall():
+        st = r["status"] or "approved"
+        status_counts[st] = r["cnt"]
+
+    pending_cnt = status_counts.get("pending", 0)
+    approved_cnt = status_counts.get("approved", 0)
+    rejected_cnt = status_counts.get("rejected", 0)
+    total_cnt = sum(status_counts.values())
+
+    query = """
+        SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude, status, rejection_reason, approved_at, created_at
+        FROM users
+        WHERE role = 'farmer'
+    """
+    params = []
+
+    if status and status != "all":
+        query += " AND (status = ? OR (status IS NULL AND ? = 'approved'))"
+        params.extend([status, status])
+
+    if search:
+        query += " AND (LOWER(name) LIKE ? OR mobile LIKE ? OR LOWER(district) LIKE ? OR LOWER(village) LIKE ? OR LOWER(state) LIKE ?)"
+        search_param = f"%{search}%"
+        params.extend([search_param, search_param, search_param, search_param, search_param])
+
+    query += " ORDER BY CASE WHEN status = 'pending' THEN 0 WHEN status = 'rejected' THEN 1 ELSE 2 END, created_at DESC"
+
+    cursor.execute(query, params)
+    applications = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "summary": {
+            "pending_count": pending_cnt,
+            "approved_count": approved_cnt,
+            "rejected_count": rejected_cnt,
+            "total_farmers": total_cnt,
+            "filtered_count": len(applications)
+        },
+        "applications": applications
+    })
+
+@admin_bp.route("/farmer-applications/<int:user_id>/review", methods=["POST"])
+def review_farmer_application(user_id):
+    """
+    Approves or rejects a farmer's registration application.
+    """
+    data = request.get_json() or {}
+    action = data.get("action", "").strip().lower()  # 'approve' or 'reject'
+    reason = data.get("reason", "").strip()
+
+    if action not in ["approve", "reject"]:
+        return jsonify({"success": False, "message": "Invalid action. Must be 'approve' or 'reject'."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT id, name, mobile, role, status FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    if user["role"] != "farmer":
+        conn.close()
+        return jsonify({"success": False, "message": "Only farmer applications can be reviewed."}), 400
+
+    now_iso = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if action == "approve":
+        new_status = "approved"
+        cursor.execute("""
+            UPDATE users 
+            SET status = ?, approved_at = ?, rejection_reason = NULL 
+            WHERE id = ?
+        """, (new_status, now_iso, user_id))
+        conn.commit()
+        message = f"Farmer {user['name']} has been approved successfully. They can now log in to the KisanSetu portal."
+    else:
+        new_status = "rejected"
+        rejection_reason = reason or "Application review criteria not met by Ministry of Agriculture."
+        cursor.execute("""
+            UPDATE users 
+            SET status = ?, approved_at = NULL, rejection_reason = ? 
+            WHERE id = ?
+        """, (new_status, rejection_reason, user_id))
+        conn.commit()
+        message = f"Farmer {user['name']} application has been rejected."
+
+    cursor.execute("SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude, status, rejection_reason, approved_at, created_at FROM users WHERE id = ?", (user_id,))
+    updated_user = dict(cursor.fetchone())
+    conn.close()
+
+    return jsonify({
+        "success": True,
+        "message": message,
+        "application": updated_user
     })
