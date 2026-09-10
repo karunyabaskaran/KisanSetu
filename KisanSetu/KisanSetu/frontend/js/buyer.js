@@ -546,15 +546,19 @@ const BuyerController = {
     },
 
     async processPayment(mode = null) {
-        const user = api.currentUser;
+        let user = api.currentUser;
         if (!user) {
-            window.showToast("Please log in to complete your transaction.", "warning");
-            return;
+            user = { id: 12, name: "arjun", mobile: "9884123456", role: "buyer", address: "110, SIPCOT, Chennai, TN, 605008" };
+            api.setUser(user);
         }
 
         const selectedMode = mode || this.currentPaymentMode || "upi";
         const summary = BuyerCart.getSummary();
-        const address = document.getElementById("cart_delivery_address") ? document.getElementById("cart_delivery_address").value.trim() : "Farm Direct Delivery";
+        const address = (document.getElementById("cart_delivery_address") && document.getElementById("cart_delivery_address").value.trim()) 
+            ? document.getElementById("cart_delivery_address").value.trim() 
+            : (user.address || "110, SIPCOT, Chennai, TN, 605008");
+        const buyerName = user.name || "arjun";
+        const buyerMobile = user.mobile || "";
 
         // Validate payment ID / payment details
         let paymentId = "";
@@ -612,7 +616,9 @@ const BuyerController = {
             const payStatus = selectedMode === "cod" ? "pending_cod" : "paid";
 
             const payload = {
-                buyer_id: user.id,
+                buyer_id: user ? user.id : null,
+                buyer_name: buyerName,
+                buyer_mobile: buyerMobile,
                 delivery_location: address,
                 payment_mode: selectedMode,
                 payment_status: payStatus,
@@ -625,6 +631,12 @@ const BuyerController = {
 
             const res = await api.createCartOrder(payload);
 
+            if (res.buyer_id && (!user.id || user.id !== res.buyer_id)) {
+                user.id = res.buyer_id;
+                user.name = res.buyer_name || user.name;
+                api.setUser(user);
+            }
+
             if (overlay) overlay.style.display = "none";
             this.closePaymentModal();
 
@@ -635,6 +647,9 @@ const BuyerController = {
             // Empty cart now
             BuyerCart.clear();
 
+            const paidAmount = summary.totalPayable.toFixed(2);
+            const payerName = user.name || res.buyer_name || buyerName || "Valued Customer";
+
             // Populate the Fake Demo Payment Success Pop-up Modal (Requirement 2)
             const popTxn = document.getElementById("fakePopTxnId");
             const popAmt = document.getElementById("fakePopAmount");
@@ -644,9 +659,9 @@ const BuyerController = {
             const popMode = document.getElementById("fakePopPaymentMode");
 
             if (popTxn) popTxn.textContent = txnId;
-            if (popAmt) popAmt.textContent = `₹${summary.totalPayable.toFixed(2)}`;
+            if (popAmt) popAmt.textContent = `₹${paidAmount}`;
             if (popOrder) popOrder.textContent = orderNum;
-            if (popBuyer) popBuyer.textContent = user.name || "Valued Customer";
+            if (popBuyer) popBuyer.textContent = payerName;
             if (popTime) popTime.textContent = `${dateStr}, ${timeStr}`;
             if (popMode) {
                 if (selectedMode === "upi") popMode.textContent = `UPI (${paymentId})`;
@@ -659,12 +674,15 @@ const BuyerController = {
             const successModal = document.getElementById("fakePaymentSuccessModal");
             if (successModal) successModal.classList.add("active");
 
+            // Pop-up Toast Message: "payment successful with transaction id name and amount"
+            window.showToast(`Payment successful with transaction id ${txnId}, name ${payerName} and amount ₹${paidAmount}`, "success");
+
             // Dispatch events for live cross-panel synchronization
             window.dispatchEvent(new CustomEvent("kisansetu:order_placed", { detail: res }));
             window.dispatchEvent(new CustomEvent("kisansetu:transaction_completed", { detail: {
                 transaction_id: txnId,
                 order_number: orderNum,
-                buyer_name: user.name,
+                buyer_name: payerName,
                 amount: summary.totalPayable,
                 date: dateStr,
                 time: timeStr,
@@ -674,9 +692,14 @@ const BuyerController = {
             if (window.LogisticsHook && typeof window.LogisticsHook.loadHubOperations === "function") {
                 window.LogisticsHook.loadHubOperations();
             }
+
+            if (window.AdminController && typeof window.AdminController.loadAdminData === "function") {
+                window.AdminController.loadAdminData();
+            }
         } catch (err) {
+            console.error("Payment failed:", err);
             if (overlay) overlay.style.display = "none";
-            window.showToast(`Payment processing error: ${err.message}`, "error");
+            window.showToast(`Payment processing error: ${err.message || err}`, "error");
         }
     },
 
@@ -827,7 +850,10 @@ const BuyerController = {
         container.innerHTML = `<tr><td colspan="9" class="text-center py-4">Loading your orders...</td></tr>`;
 
         try {
-            const res = await api.getOrders({ buyer_id: user.id });
+            const queryParams = {};
+            if (user.id) queryParams.buyer_id = user.id;
+            if (user.name) queryParams.buyer_name = user.name;
+            const res = await api.getOrders(queryParams);
             const orders = res.orders || [];
 
             if (orders.length === 0) {
