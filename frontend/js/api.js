@@ -159,6 +159,11 @@ const api = {
         return this.request(`/api/orders/list?${query}`);
     },
 
+    async getFarmerTransactions(farmerId) {
+        const query = farmerId ? `?farmer_id=${farmerId}` : "";
+        return this.request(`/api/orders/farmer-transactions${query}`);
+    },
+
     async updateOrderStatus(orderId, status, note = "") {
         return this.request("/api/orders/update-status", {
             method: "POST",

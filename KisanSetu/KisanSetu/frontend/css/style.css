@@ -1556,6 +1556,45 @@ a {
     box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
 }
 
+/* Password Input with Show/Hide Toggle */
+.password-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.password-input-wrap .form-control {
+    padding-right: 44px;
+}
+
+.btn-toggle-password {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    line-height: 1;
+    border-radius: var(--radius-sm);
+    color: #64748b;
+    transition: all 0.2s ease;
+    user-select: none;
+    z-index: 2;
+}
+
+.btn-toggle-password:hover {
+    color: var(--primary-dark);
+    background: #f1f5f9;
+}
+
+
 /* Static Non-Editable Role Indicator */
 .static-role-field {
     display: flex;
@@ -3225,4 +3264,72 @@ a {
         display: none !important;
     }
 }
+
+/* ====================================================================
+   SWIGGY-STYLE PAYMENT COMPLETION & FARMER TRANSACTION DASHBOARD STYLES
+   ==================================================================== */
+
+.swiggy-payment-card {
+    border: none;
+    background: #ffffff;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.payment-method-btn {
+    flex: 1;
+    min-width: 130px;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.payment-method-btn:hover {
+    border-color: #fc8019;
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.payment-method-btn.active {
+    background: #fc8019;
+    color: #ffffff;
+    border-color: #ea580c;
+    box-shadow: 0 2px 8px rgba(252, 128, 25, 0.35);
+}
+
+@media (max-width: 768px) {
+    .swiggy-pay-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .swiggy-pay-footer {
+        flex-direction: column-reverse;
+        gap: 12px;
+    }
+    .swiggy-pay-footer button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+#fakePaymentSuccessModal .modal-content-card {
+    animation: popSuccess 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popSuccess {
+    from {
+        transform: scale(0.85);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
 

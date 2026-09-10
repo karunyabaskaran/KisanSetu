@@ -53,8 +53,8 @@ const BuyerCart = {
         return price;
     },
 
-    addItem(product, qty = 2.0) {
-        const validQty = Math.max(2.0, parseFloat(qty) || 2.0);
+    addItem(product, qty = 1.0) {
+        const validQty = Math.max(0.1, parseFloat(qty) || 1.0);
         const existingIndex = this.items.findIndex(i => i.id === product.id);
 
         if (existingIndex >= 0) {
@@ -98,7 +98,7 @@ const BuyerCart = {
     updateQuantity(productId, newQty) {
         const item = this.items.find(i => i.id === productId);
         if (!item) return;
-        const q = Math.max(0.5, parseFloat(newQty) || 2.0);
+        const q = Math.max(0.1, parseFloat(newQty) || 1.0);
         item.quantity = q;
         item.unit_price = this.calculateItemUnitPrice(item.slabs, q);
         item.total = parseFloat((item.unit_price * q).toFixed(2));
@@ -122,8 +122,7 @@ const BuyerCart = {
 
     getSummary() {
         const distinctCount = this.items.length;
-        const allMeetMinWeight = distinctCount > 0 && this.items.every(i => parseFloat(i.quantity) >= 2.0);
-        const canCheckout = distinctCount >= 4 && allMeetMinWeight;
+        const canCheckout = distinctCount > 0;
 
         const productCost = this.items.reduce((sum, i) => sum + (i.unit_price * i.quantity), 0);
         const totalWeight = this.items.reduce((sum, i) => sum + i.quantity, 0);
@@ -134,7 +133,6 @@ const BuyerCart = {
 
         return {
             distinctCount,
-            allMeetMinWeight,
             canCheckout,
             productCost: parseFloat(productCost.toFixed(2)),
             transportCost: parseFloat(transportCost.toFixed(2)),
@@ -146,20 +144,9 @@ const BuyerCart = {
     },
 
     renderLocationOptimizationBanner() {
+        // Proximity routing banner removed
         const banner = document.getElementById("cartLocationBanner");
-        const bannerText = document.getElementById("cartLocationBannerText");
-        if (!banner) return;
-
-        if (this.anchorLocation && this.items.length > 0) {
-            banner.style.display = "flex";
-            if (bannerText) {
-                const isChennaiArea = (this.anchorLocation.district && this.anchorLocation.district.toLowerCase().includes("chennai")) ||
-                                      (this.anchorLocation.state && this.anchorLocation.state.toLowerCase().includes("tamil nadu"));
-                bannerText.innerHTML = `First crop added: <strong>${this.anchorLocation.name}</strong> from <strong>${this.anchorLocation.district || ''}, ${this.anchorLocation.state || ''}</strong>. Showing and prioritizing farm produce from ${isChennaiArea ? 'Chennai / Tamil Nadu cluster' : this.anchorLocation.district + ' corridor'} for single-carrier consolidated delivery!`;
-            }
-        } else {
-            banner.style.display = "none";
-        }
+        if (banner) banner.style.display = "none";
     }
 };
 
@@ -386,36 +373,6 @@ const BuyerController = {
         const summary = BuyerCart.getSummary();
         const items = BuyerCart.items;
 
-        // Update Validation Badges
-        const countText = document.getElementById("cartRuleCountText");
-        const countIcon = document.getElementById("cartRuleCountIcon");
-        const countRule = document.getElementById("cartRuleCount");
-        if (countText && countRule) {
-            countText.textContent = `${summary.distinctCount} / 4 minimum distinct produce added`;
-            if (summary.distinctCount >= 4) {
-                countIcon.textContent = "✅";
-                countRule.style.color = "#15803d";
-            } else {
-                countIcon.textContent = "⚠️";
-                countRule.style.color = "#b45309";
-            }
-        }
-
-        const weightText = document.getElementById("cartRuleWeightText");
-        const weightIcon = document.getElementById("cartRuleWeightIcon");
-        const weightRule = document.getElementById("cartRuleWeight");
-        if (weightText && weightRule) {
-            if (summary.allMeetMinWeight) {
-                weightText.textContent = "All produce varieties meet min 2.0 kg requirement";
-                weightIcon.textContent = "✅";
-                weightRule.style.color = "#15803d";
-            } else {
-                weightText.textContent = "Every produce type must be at least 2.0 kg";
-                weightIcon.textContent = "⚠️";
-                weightRule.style.color = "#b45309";
-            }
-        }
-
         // Render Summary Breakdown
         const produceEl = document.getElementById("cartSummaryProduceCost");
         const transportEl = document.getElementById("cartSummaryTransportCost");
@@ -430,13 +387,13 @@ const BuyerController = {
         if (taxEl) taxEl.textContent = `₹${summary.taxAmount.toFixed(2)}`;
         if (totalEl) totalEl.textContent = `₹${summary.totalPayable.toFixed(2)}`;
 
-        // Enable / Disable checkout button based on both rules
+        // Enable / Disable checkout button based on cart items
         if (checkoutBtn) {
             checkoutBtn.disabled = !summary.canCheckout;
             if (!summary.canCheckout) {
-                checkoutBtn.title = "Consolidated delivery requires at least 4 distinct crops and min 2kg each.";
+                checkoutBtn.title = "Your cart is empty. Please add farm produce.";
             } else {
-                checkoutBtn.title = "Proceed to select payment method";
+                checkoutBtn.title = "Proceed to payment gateway";
             }
         }
 
@@ -445,14 +402,13 @@ const BuyerController = {
                 <div class="text-center py-4 text-muted">
                     <div style="font-size: 2rem;">🛒</div>
                     <h4 style="margin: 6px 0;">Your Cart is Empty</h4>
-                    <p class="small">Add at least 4 farm-fresh produce types (min 2 kg each) from the marketplace to checkout.</p>
+                    <p class="small">Add farm-fresh produce from the marketplace to checkout.</p>
                 </div>
             `;
             return;
         }
 
         container.innerHTML = items.map(item => {
-            const isWeightValid = item.quantity >= 2.0;
             return `
                 <div class="cart-item-row">
                     <img src="${item.image_url}" alt="${item.name}" class="cart-item-img" onerror="this.src='https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600'">
@@ -460,11 +416,10 @@ const BuyerController = {
                         <div class="cart-item-name">${item.name}</div>
                         <div class="cart-item-meta">👨‍🌾 ${item.farmer_name} • 📍 ${item.farmer_district}, ${item.farmer_state}</div>
                         <span class="cart-item-slab-chip">Slab: ₹${item.unit_price} / kg</span>
-                        ${!isWeightValid ? '<span style="color: #dc2626; font-size: 0.75rem; font-weight: 700; margin-left: 6px;">(Min 2 kg required)</span>' : ''}
                     </div>
                     <div class="cart-qty-stepper">
                         <button type="button" class="cart-stepper-btn" onclick="BuyerController.updateCartQty(${item.id}, ${item.quantity - 0.5})">-</button>
-                        <input type="number" step="0.5" min="0.5" class="cart-qty-input" value="${item.quantity}" onchange="BuyerController.updateCartQty(${item.id}, this.value)">
+                        <input type="number" step="0.5" min="0.1" class="cart-qty-input" value="${item.quantity}" onchange="BuyerController.updateCartQty(${item.id}, this.value)">
                         <button type="button" class="cart-stepper-btn" onclick="BuyerController.updateCartQty(${item.id}, ${item.quantity + 0.5})">+</button>
                     </div>
                     <div class="cart-item-price-box">
@@ -488,32 +443,88 @@ const BuyerController = {
         this.loadMarketplace();
     },
 
-    // --- Interactive Demo Payment Gateway ---
+    // --- Swiggy-Style Dedicated Payment Gateway & Checkout Page ---
     openPaymentGatewayModal() {
         const summary = BuyerCart.getSummary();
-        if (!summary.canCheckout) {
-            window.showToast("Checkout requires minimum 4 distinct crop varieties and min 2 kg per crop.", "warning");
+        if (!summary.canCheckout || BuyerCart.items.length === 0) {
+            window.showToast("Your cart is empty. Please add farm produce before checking out.", "warning");
             return;
         }
 
-        const addr = document.getElementById("cart_delivery_address") ? document.getElementById("cart_delivery_address").value.trim() : "";
+        const user = api.currentUser;
+        const addrInput = document.getElementById("cart_delivery_address");
+        let addr = addrInput ? addrInput.value.trim() : "";
+        if (!addr && user && user.address) {
+            addr = user.address;
+            if (addrInput) addrInput.value = addr;
+        }
         if (!addr) {
-            window.showToast("Please enter your complete delivery destination address.", "error");
-            return;
+            addr = "Main Market Road, Chennai, Tamil Nadu";
+            if (addrInput) addrInput.value = addr;
         }
 
         this.closeCartModal();
         const modal = document.getElementById("paymentGatewayModal");
         if (!modal) return;
 
+        // Populate Swiggy-style payment page elements
         const payableAmountEl = document.getElementById("paymentModalPayableAmount");
-        const itemsCountEl = document.getElementById("paymentModalItemsCount");
+        const btnPayNowAmountText = document.getElementById("btnPayNowAmountText");
+        const produceSubtotalEl = document.getElementById("swiggyProduceSubtotal");
+        const deliveryFeeEl = document.getElementById("swiggyDeliveryFee");
+        const packagingFeeEl = document.getElementById("swiggyPackagingFee");
+        const taxFeeEl = document.getElementById("swiggyTaxFee");
+        const grandTotalEl = document.getElementById("swiggyGrandTotal");
+        const deliveryAddrEl = document.getElementById("swiggyPayDeliveryAddress");
+        const itemsListEl = document.getElementById("swiggyPayItemsList");
 
-        if (payableAmountEl) payableAmountEl.textContent = `₹${summary.totalPayable.toFixed(2)}`;
-        if (itemsCountEl) itemsCountEl.textContent = `${summary.distinctCount} varieties (${summary.totalWeight} kg consignment)`;
+        const fmtTotal = `₹${summary.totalPayable.toFixed(2)}`;
+        if (payableAmountEl) payableAmountEl.textContent = fmtTotal;
+        if (btnPayNowAmountText) btnPayNowAmountText.textContent = fmtTotal;
+        if (produceSubtotalEl) produceSubtotalEl.textContent = `₹${summary.productCost.toFixed(2)}`;
+        if (deliveryFeeEl) deliveryFeeEl.textContent = `₹${summary.transportCost.toFixed(2)}`;
+        if (packagingFeeEl) packagingFeeEl.textContent = `₹${summary.packagingCost.toFixed(2)}`;
+        if (taxFeeEl) taxFeeEl.textContent = `₹${summary.taxAmount.toFixed(2)}`;
+        if (grandTotalEl) grandTotalEl.textContent = fmtTotal;
+        if (deliveryAddrEl) deliveryAddrEl.innerHTML = `<strong>${user ? user.name : 'Customer'}</strong> • ${addr}`;
 
-        this.selectPaymentMode("upi");
+        if (itemsListEl) {
+            itemsListEl.innerHTML = BuyerCart.items.map(i => `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>${i.name} (${i.quantity} kg)</span>
+                    <strong style="color: #1e293b;">₹${i.total.toFixed(2)}</strong>
+                </div>
+            `).join('');
+        }
+
+        this.selectPaymentMode(this.currentPaymentMode || "upi");
         modal.classList.add("active");
+    },
+
+    setPaymentIdPreset(id, modeName) {
+        const input = document.getElementById("input_upi_id");
+        if (input) input.value = id;
+        window.showToast(`Selected ${modeName}: ${id}`, "info");
+    },
+
+    cancelPayment() {
+        this.closePaymentModal();
+        this.openCartModal();
+        window.showToast("Payment cancelled. Your items are safe in cart.", "info");
+    },
+
+    closeFakePaymentPopup() {
+        const modal = document.getElementById("fakePaymentSuccessModal");
+        if (modal) modal.classList.remove("active");
+    },
+
+    viewOrderAfterPayment() {
+        this.closeFakePaymentPopup();
+        window.showBuyerTab("orders");
+        this.loadMyOrders();
+        if (this.lastCreatedOrder) {
+            this.openInvoiceModal(this.lastCreatedOrder);
+        }
     },
 
     closePaymentModal() {
@@ -525,7 +536,7 @@ const BuyerController = {
 
     selectPaymentMode(mode) {
         this.currentPaymentMode = mode;
-        const modes = ["upi", "card", "cod"];
+        const modes = ["upi", "card", "net", "cod"];
         modes.forEach(m => {
             const btn = document.getElementById(`payTab_${m}`);
             const view = document.getElementById(`payView_${m}`);
@@ -534,12 +545,36 @@ const BuyerController = {
         });
     },
 
-    async processPayment(mode) {
+    async processPayment(mode = null) {
         const user = api.currentUser;
-        if (!user) return;
+        if (!user) {
+            window.showToast("Please log in to complete your transaction.", "warning");
+            return;
+        }
 
+        const selectedMode = mode || this.currentPaymentMode || "upi";
         const summary = BuyerCart.getSummary();
         const address = document.getElementById("cart_delivery_address") ? document.getElementById("cart_delivery_address").value.trim() : "Farm Direct Delivery";
+
+        // Validate payment ID / payment details
+        let paymentId = "";
+        if (selectedMode === "upi") {
+            const upiInput = document.getElementById("input_upi_id");
+            paymentId = upiInput ? upiInput.value.trim() : "anand.buyer@oksbi";
+            if (!paymentId) {
+                window.showToast("Please enter a valid Payment ID / UPI ID.", "warning");
+                return;
+            }
+        } else if (selectedMode === "card") {
+            const cardInput = document.getElementById("input_card_number");
+            paymentId = cardInput ? cardInput.value.trim() : "4532 9812 3456 4242";
+        } else if (selectedMode === "net") {
+            const bankSelect = document.getElementById("input_bank_select");
+            const netId = document.getElementById("input_netbanking_id");
+            paymentId = `${bankSelect ? bankSelect.value : 'HDFC'}-${netId ? netId.value : '59281923'}`;
+        } else {
+            paymentId = `COD-DELIVERY-${Date.now()}`;
+        }
 
         const overlay = document.getElementById("paymentProcessingOverlay");
         const titleEl = document.getElementById("paymentProcessingTitle");
@@ -547,29 +582,39 @@ const BuyerController = {
 
         if (overlay) {
             overlay.style.display = "flex";
-            if (mode === "upi") {
-                if (titleEl) titleEl.textContent = "Verifying UPI Payment...";
-                if (subEl) subEl.textContent = "Connecting to NPCI UPI switch & validating test VPA...";
-            } else if (mode === "card") {
-                if (titleEl) titleEl.textContent = "Processing 3D Secure Authorization...";
-                if (subEl) subEl.textContent = "Simulating encrypted card tokenization & OTP approval...";
+            if (selectedMode === "upi") {
+                if (titleEl) titleEl.textContent = "Authorizing UPI Payment...";
+                if (subEl) subEl.textContent = `Pinging NPCI switch for Payment ID: ${paymentId}...`;
+            } else if (selectedMode === "card") {
+                if (titleEl) titleEl.textContent = "Processing Card Authorization...";
+                if (subEl) subEl.textContent = "Simulating encrypted 3D Secure handshake...";
+            } else if (selectedMode === "net") {
+                if (titleEl) titleEl.textContent = "Connecting to Net Banking Gateway...";
+                if (subEl) titleEl.textContent = "Handshaking with secure core banking servers...";
             } else {
-                if (titleEl) titleEl.textContent = "Confirming COD Consignment...";
-                if (subEl) subEl.textContent = "Reserving delivery slot with logistics fleet...";
+                if (titleEl) titleEl.textContent = "Confirming Cash on Delivery...";
+                if (subEl) subEl.textContent = "Reserving consignment delivery slot...";
             }
         }
 
-        // Simulate 1.2s realistic gateway handshake
+        // Realistic fake payment gateway processing delay (1.2s)
         await new Promise(resolve => setTimeout(resolve, 1200));
 
         try {
-            const txnId = mode === "cod" ? `COD-${Date.now()}` : `${mode.toUpperCase()}-TXN-${Math.floor(100000 + Math.random() * 900000)}`;
-            const payStatus = mode === "cod" ? "pending_cod" : "paid_verified";
+            const now = new Date();
+            const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+            const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+            // Generate realistic transaction ID
+            const modePrefix = selectedMode.toUpperCase();
+            const dateCode = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+            const txnId = `TXN-${modePrefix}-${dateCode}-${Math.floor(100000 + Math.random() * 900000)}`;
+            const payStatus = selectedMode === "cod" ? "pending_cod" : "paid";
 
             const payload = {
                 buyer_id: user.id,
                 delivery_location: address,
-                payment_mode: mode,
+                payment_mode: selectedMode,
                 payment_status: payStatus,
                 transaction_id: txnId,
                 items: BuyerCart.items.map(i => ({
@@ -582,25 +627,52 @@ const BuyerController = {
 
             if (overlay) overlay.style.display = "none";
             this.closePaymentModal();
+
+            const firstOrder = res.orders && res.orders[0] ? res.orders[0] : null;
+            const orderNum = firstOrder ? firstOrder.order_number : (res.batch_group_id || `ORD-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+            this.lastCreatedOrder = firstOrder;
+
+            // Empty cart now
             BuyerCart.clear();
 
-            window.showToast(`🎉 Order Placed Successfully! ${res.orders ? res.orders.length : 4} orders generated.`, "success");
+            // Populate the Fake Demo Payment Success Pop-up Modal (Requirement 2)
+            const popTxn = document.getElementById("fakePopTxnId");
+            const popAmt = document.getElementById("fakePopAmount");
+            const popOrder = document.getElementById("fakePopOrderId");
+            const popBuyer = document.getElementById("fakePopBuyerName");
+            const popTime = document.getElementById("fakePopDateTime");
+            const popMode = document.getElementById("fakePopPaymentMode");
 
-            // Open My Orders tab and show invoice for the first created order
-            window.showBuyerTab("orders");
-            await this.loadMyOrders();
-
-            if (res.orders && res.orders[0]) {
-                this.openInvoiceModal(res.orders[0]);
+            if (popTxn) popTxn.textContent = txnId;
+            if (popAmt) popAmt.textContent = `₹${summary.totalPayable.toFixed(2)}`;
+            if (popOrder) popOrder.textContent = orderNum;
+            if (popBuyer) popBuyer.textContent = user.name || "Valued Customer";
+            if (popTime) popTime.textContent = `${dateStr}, ${timeStr}`;
+            if (popMode) {
+                if (selectedMode === "upi") popMode.textContent = `UPI (${paymentId})`;
+                else if (selectedMode === "card") popMode.textContent = `Card (${paymentId.slice(-4)})`;
+                else if (selectedMode === "net") popMode.textContent = `Net Banking (${paymentId})`;
+                else popMode.textContent = "Cash on Delivery";
             }
 
-            // Trigger cross-panel live propagation
+            // Show Fake Demo Pop-up
+            const successModal = document.getElementById("fakePaymentSuccessModal");
+            if (successModal) successModal.classList.add("active");
+
+            // Dispatch events for live cross-panel synchronization
             window.dispatchEvent(new CustomEvent("kisansetu:order_placed", { detail: res }));
+            window.dispatchEvent(new CustomEvent("kisansetu:transaction_completed", { detail: {
+                transaction_id: txnId,
+                order_number: orderNum,
+                buyer_name: user.name,
+                amount: summary.totalPayable,
+                date: dateStr,
+                time: timeStr,
+                mode: selectedMode
+            }}));
+
             if (window.LogisticsHook && typeof window.LogisticsHook.loadHubOperations === "function") {
                 window.LogisticsHook.loadHubOperations();
-            }
-            if (window.FarmerController && typeof window.FarmerController.loadOrders === "function") {
-                window.FarmerController.loadOrders();
             }
         } catch (err) {
             if (overlay) overlay.style.display = "none";

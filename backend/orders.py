@@ -262,20 +262,20 @@ def create_cart_order():
     if not buyer_id or not delivery_location:
         return jsonify({"success": False, "message": "Buyer and delivery location are required."}), 400
 
-    # Constraint 1: Minimum 4 distinct product types required
-    if len(items) < 4:
+    # Validate that items exist
+    if not items or len(items) < 1:
         return jsonify({
             "success": False, 
-            "message": f"Cart requires minimum 4 types of products to place an order (currently {len(items)} selected)."
+            "message": "Your cart is empty. Please add farm produce to place an order."
         }), 400
 
-    # Constraint 2: Minimum 2 kg required for each product
+    # Ensure valid positive quantities
     for idx, item in enumerate(items, 1):
         q = float(item.get("quantity") or 0)
-        if q < 2.0:
+        if q <= 0:
             return jsonify({
                 "success": False,
-                "message": f"Item #{idx} ({item.get('name') or 'Product'}) does not meet the minimum 2 kg requirement (selected: {q} kg)."
+                "message": f"Item #{idx} ({item.get('name') or 'Product'}) must have a quantity greater than 0 kg."
             }), 400
 
     conn = get_db()
@@ -290,7 +290,8 @@ def create_cart_order():
     from backend.products import calculate_slab_price
 
     batch_group_id = f"GRP-{datetime.datetime.now().year}-{uuid.uuid4().hex[:6].upper()}"
-    payment_status = "paid" if payment_mode in ["UPI", "CARD"] else "pending_cod"
+    pm_upper = payment_mode.upper()
+    payment_status = "paid" if ("UPI" in pm_upper or "CARD" in pm_upper or "NET" in pm_upper or "BANK" in pm_upper or "ONLINE" in pm_upper) else "pending_cod"
 
     # Pre-validate all products and quantities
     validated_items = []
@@ -524,6 +525,93 @@ def list_orders():
         "success": True,
         "count": len(orders_list),
         "orders": orders_list
+    })
+
+@orders_bp.route("/farmer-transactions", methods=["GET"])
+def get_farmer_transactions():
+    """
+    Returns transaction history for farmer sales ledger.
+    Includes transaction_id, order_id, buyer_name, amount, product_name,
+    date, time, payment_mode, and settlement status.
+    """
+    farmer_id = request.args.get("farmer_id")
+    conn = get_db()
+    cursor = conn.cursor()
+
+    query = """
+        SELECT o.id, o.order_number, o.product_id, o.product_name, o.farmer_id, o.farmer_name,
+               o.buyer_id, o.buyer_name, o.buyer_mobile, o.quantity, o.price_per_kg, o.total_amount,
+               o.status, o.created_at, o.batch_group_id, o.product_cost, o.transport_cost,
+               o.packaging_cost, o.tax_amount, o.payment_mode, o.payment_status, o.transaction_id
+        FROM orders o
+        WHERE 1=1
+    """
+    params = []
+    if farmer_id:
+        query += " AND o.farmer_id = ?"
+        params.append(farmer_id)
+
+    query += " ORDER BY o.id DESC"
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    transactions = []
+    total_revenue = 0.0
+
+    for r in rows:
+        row_dict = dict(r)
+        order_id = row_dict.get("id")
+        created_str = row_dict.get("created_at") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        date_str = ""
+        time_str = ""
+        try:
+            dt = datetime.datetime.fromisoformat(created_str.replace("Z", ""))
+            date_str = dt.strftime("%d %b %Y")
+            time_str = dt.strftime("%I:%M %p")
+        except Exception:
+            parts = str(created_str).split(" ")
+            date_str = parts[0] if len(parts) > 0 else "Today"
+            time_str = parts[1][:5] if len(parts) > 1 else "12:00 PM"
+
+        txn_id = row_dict.get("transaction_id")
+        mode = row_dict.get("payment_mode") or "UPI"
+        if not txn_id or "DEMO" in txn_id or txn_id.startswith("TXN-DEMO"):
+            prefix = "UPI" if "UPI" in mode.upper() else ("CARD" if "CARD" in mode.upper() else ("NET" if "NET" in mode.upper() else "TXN"))
+            date_code = date_str.replace(" ", "").upper()
+            txn_id = f"TXN-{prefix}-{date_code}-{1000 + int(order_id or 0):05d}"
+
+        amount = float(row_dict.get("total_amount") or row_dict.get("product_cost") or 0.0)
+        total_revenue += amount
+
+        pay_status = row_dict.get("payment_status") or "paid"
+        status_label = "Settled ✅" if pay_status in ["paid", "paid_verified"] else ("Pending COD ⏳" if pay_status == "pending_cod" else "Completed")
+
+        transactions.append({
+            "id": order_id,
+            "transaction_id": txn_id,
+            "order_id": row_dict.get("order_number") or f"ORD-{order_id}",
+            "raw_order_id": order_id,
+            "batch_group_id": row_dict.get("batch_group_id") or "",
+            "buyer_name": row_dict.get("buyer_name") or "Retail Consumer",
+            "buyer_mobile": row_dict.get("buyer_mobile") or "N/A",
+            "product_name": row_dict.get("product_name") or "Produce Batch",
+            "quantity": float(row_dict.get("quantity") or 0),
+            "amount": round(amount, 2),
+            "date": date_str,
+            "time": time_str,
+            "payment_mode": mode,
+            "payment_status": pay_status,
+            "status": status_label,
+            "created_at": created_str
+        })
+
+    return jsonify({
+        "success": True,
+        "count": len(transactions),
+        "total_revenue": round(total_revenue, 2),
+        "transactions": transactions
     })
 
 @orders_bp.route("/update-status", methods=["POST"])

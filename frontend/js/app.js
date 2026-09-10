@@ -186,6 +186,8 @@ function showFarmerTab(tabName) {
         loadFarmerMarketplaceBrowse();
     } else if (tabName === "orders") {
         FarmerController.loadOrders();
+    } else if (tabName === "transactions") {
+        FarmerController.loadTransactions();
     } else if (tabName === "support") {
         FarmerController.loadTickets();
     }

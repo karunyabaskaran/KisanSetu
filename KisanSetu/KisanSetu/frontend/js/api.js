@@ -92,7 +92,7 @@ const api = {
             method: "POST",
             body: JSON.stringify(payload)
         });
-        if (res.success && res.user) {
+        if (res.success && res.user && res.status !== "pending") {
             this.setUser(res.user);
         }
         return res;
@@ -157,6 +157,11 @@ const api = {
     async getOrders(params = {}) {
         const query = new URLSearchParams(params).toString();
         return this.request(`/api/orders/list?${query}`);
+    },
+
+    async getFarmerTransactions(farmerId) {
+        const query = farmerId ? `?farmer_id=${farmerId}` : "";
+        return this.request(`/api/orders/farmer-transactions${query}`);
     },
 
     async updateOrderStatus(orderId, status, note = "") {
@@ -296,6 +301,19 @@ const api = {
     async getAdminUsers(params = {}) {
         const query = new URLSearchParams(params).toString();
         return this.request(`/api/admin/users/list?${query}`);
+    },
+
+    // --- Admin Farmer Registration Approvals ---
+    async getFarmerApplications(params = {}) {
+        const query = new URLSearchParams(params).toString();
+        return this.request(`/api/admin/farmer-applications?${query}`);
+    },
+
+    async reviewFarmerApplication(userId, payload) {
+        return this.request(`/api/admin/farmer-applications/${userId}/review`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
     }
 };
 

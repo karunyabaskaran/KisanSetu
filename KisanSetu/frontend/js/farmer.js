@@ -27,6 +27,7 @@ const FarmerController = {
         this.loadOrders();
         this.loadTickets();
         this.loadProfile();
+        this.loadTransactions();
         this.initImagePicker();
 
         // Crop selector change listener for AI demand forecast
@@ -38,13 +39,19 @@ const FarmerController = {
             });
         }
 
-        // Live Cross-Panel Sync: auto-refresh when customer places an order
+        // Live Cross-Panel Sync: auto-refresh when customer places an order or completes a transaction
         if (!window._farmerOrderListenerAttached) {
             window._farmerOrderListenerAttached = true;
             window.addEventListener("kisansetu:order_placed", () => {
                 if (window.api && window.api.currentUser && window.api.currentUser.role === "farmer") {
                     FarmerController.loadOrders();
                     FarmerController.loadMyProducts();
+                    FarmerController.loadTransactions();
+                }
+            });
+            window.addEventListener("kisansetu:transaction_completed", () => {
+                if (window.api && window.api.currentUser && window.api.currentUser.role === "farmer") {
+                    FarmerController.loadTransactions();
                 }
             });
         }
@@ -593,6 +600,145 @@ const FarmerController = {
         } catch (err) {
             window.showToast(err.message, "error");
         }
+    },
+
+    allTransactions: [],
+
+    // --- Farmer Payment & Transaction Ledger ---
+    async loadTransactions() {
+        const user = api.currentUser;
+        const tbody = document.getElementById("farmerTransactionsTableBody");
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted"><div class="loader-spinner mb-2" style="width: 24px; height: 24px; margin: 0 auto;"></div>Loading transactions...</td></tr>`;
+        }
+
+        try {
+            const res = await api.getFarmerTransactions(user ? user.id : null);
+            this.allTransactions = res.transactions || [];
+
+            // Update Stat Cards
+            const totalRevenueEl = document.getElementById("farmerTxnTotalRevenue");
+            const totalCountEl = document.getElementById("farmerTxnTotalCount");
+            const avgValueEl = document.getElementById("farmerTxnAvgValue");
+
+            const count = this.allTransactions.length;
+            const revenue = this.allTransactions.reduce((acc, t) => acc + (parseFloat(t.amount) || 0), 0);
+            const avg = count > 0 ? (revenue / count) : 0;
+
+            if (totalRevenueEl) totalRevenueEl.textContent = `₹${revenue.toFixed(2)}`;
+            if (totalCountEl) totalCountEl.textContent = count.toString();
+            if (avgValueEl) avgValueEl.textContent = `₹${avg.toFixed(2)}`;
+
+            this.renderTransactionsTable(this.allTransactions);
+        } catch (err) {
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-danger">Failed to load transactions: ${err.message}</td></tr>`;
+            }
+        }
+    },
+
+    filterTransactions() {
+        const searchInput = document.getElementById("farmerTxnSearchInput");
+        const modeFilter = document.getElementById("farmerTxnModeFilter");
+
+        const q = searchInput ? searchInput.value.trim().toLowerCase() : "";
+        const mode = modeFilter ? modeFilter.value.toUpperCase() : "";
+
+        let filtered = (this.allTransactions || []).filter(t => {
+            const matchesSearch = !q || 
+                (t.transaction_id && t.transaction_id.toLowerCase().includes(q)) ||
+                (t.order_id && t.order_id.toLowerCase().includes(q)) ||
+                (t.buyer_name && t.buyer_name.toLowerCase().includes(q)) ||
+                (t.product_name && t.product_name.toLowerCase().includes(q));
+
+            const matchesMode = !mode || (t.payment_mode && t.payment_mode.toUpperCase().includes(mode));
+
+            return matchesSearch && matchesMode;
+        });
+
+        this.renderTransactionsTable(filtered);
+    },
+
+    renderTransactionsTable(list) {
+        const tbody = document.getElementById("farmerTransactionsTableBody");
+        if (!tbody) return;
+
+        if (!list || list.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10" class="text-center py-5 text-muted">
+                        <div style="font-size: 2rem;">💳</div>
+                        <div style="font-weight: 700; margin-top: 6px;">No Transaction Records Found</div>
+                        <div class="small">Completed customer payments will appear here in real time.</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = list.map(t => {
+            const modeBadge = (t.payment_mode || '').toUpperCase().includes('UPI') ? 'badge-primary' : 
+                             ((t.payment_mode || '').toUpperCase().includes('CARD') ? 'badge-info' : 'badge-warning');
+            const statusBadge = (t.payment_status || '').includes('paid') ? 'badge-success' : 'badge-warning';
+
+            const safeData = encodeURIComponent(JSON.stringify(t));
+
+            return `
+                <tr>
+                    <td>
+                        <strong style="font-family: monospace; color: #065f46; font-size: 0.88rem; background: #ecfdf5; padding: 3px 8px; border-radius: 6px; border: 1px solid #a7f3d0;">
+                            ${t.transaction_id}
+                        </strong>
+                    </td>
+                    <td><span style="font-family: monospace; font-weight: 700;">${t.order_id}</span></td>
+                    <td><strong>${t.buyer_name}</strong></td>
+                    <td>${t.product_name} <span class="text-muted">(${t.quantity} kg)</span></td>
+                    <td><strong style="color: #166534; font-size: 0.95rem;">₹${t.amount.toFixed(2)}</strong></td>
+                    <td><span class="badge ${modeBadge}">${t.payment_mode}</span></td>
+                    <td>${t.date}</td>
+                    <td><span class="text-muted small">${t.time}</span></td>
+                    <td><span class="badge ${statusBadge}">${t.status}</span></td>
+                    <td>
+                        <button type="button" class="btn btn-xs btn-outline-light" onclick="FarmerController.openReceiptModal('${safeData}')" style="border: 1px solid #cbd5e1; font-weight: 600;">
+                            🧾 Slip
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    },
+
+    openReceiptModal(encodedJson) {
+        try {
+            const t = typeof encodedJson === "string" ? JSON.parse(decodeURIComponent(encodedJson)) : encodedJson;
+            const modal = document.getElementById("farmerReceiptModal");
+            if (!modal) return;
+
+            const amtEl = document.getElementById("receiptSlipAmount");
+            const txnEl = document.getElementById("receiptSlipTxnId");
+            const orderEl = document.getElementById("receiptSlipOrderId");
+            const buyerEl = document.getElementById("receiptSlipBuyerName");
+            const prodEl = document.getElementById("receiptSlipProduce");
+            const modeEl = document.getElementById("receiptSlipMode");
+            const timeEl = document.getElementById("receiptSlipDateTime");
+
+            if (amtEl) amtEl.textContent = `₹${t.amount.toFixed(2)}`;
+            if (txnEl) txnEl.textContent = t.transaction_id;
+            if (orderEl) orderEl.textContent = t.order_id;
+            if (buyerEl) buyerEl.textContent = t.buyer_name;
+            if (prodEl) prodEl.textContent = `${t.product_name} (${t.quantity} kg)`;
+            if (modeEl) modeEl.textContent = t.payment_mode;
+            if (timeEl) timeEl.textContent = `${t.date} ${t.time}`;
+
+            modal.classList.add("active");
+        } catch (e) {
+            console.error("Error opening receipt slip:", e);
+        }
+    },
+
+    closeReceiptModal() {
+        const modal = document.getElementById("farmerReceiptModal");
+        if (modal) modal.classList.remove("active");
     }
 };
 

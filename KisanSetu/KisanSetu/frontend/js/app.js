@@ -186,6 +186,8 @@ function showFarmerTab(tabName) {
         loadFarmerMarketplaceBrowse();
     } else if (tabName === "orders") {
         FarmerController.loadOrders();
+    } else if (tabName === "transactions") {
+        FarmerController.loadTransactions();
     } else if (tabName === "support") {
         FarmerController.loadTickets();
     }
@@ -268,6 +270,10 @@ function showAdminTab(tabName) {
     } else if (tabName === "forecast") {
         if (window.AdminController && typeof window.AdminController.loadAIForecasts === "function") {
             window.AdminController.loadAIForecasts();
+        }
+    } else if (tabName === "approvals") {
+        if (window.AdminController && typeof window.AdminController.loadFarmerApprovals === "function") {
+            window.AdminController.loadFarmerApprovals();
         }
     }
 }
@@ -453,6 +459,16 @@ window.showLoginModal = function(role = "farmer") {
         boxEl.className = `static-role-field ${meta.colorClass}`;
     }
 
+    const switchTextEl = document.getElementById("loginModalSwitchText");
+    const adminNoticeEl = document.getElementById("loginModalAdminNotice");
+    if (role === "admin") {
+        if (switchTextEl) switchTextEl.style.display = "none";
+        if (adminNoticeEl) adminNoticeEl.style.display = "block";
+    } else {
+        if (switchTextEl) switchTextEl.style.display = "block";
+        if (adminNoticeEl) adminNoticeEl.style.display = "none";
+    }
+
     const modal = document.getElementById("loginModal");
     if (modal) modal.classList.add("active");
 };
@@ -465,6 +481,10 @@ window.closeLoginModal = function() {
 window.switchToRegisterFromLogin = function() {
     const hiddenInput = document.getElementById("login_role_select");
     const currentRole = (hiddenInput && hiddenInput.value) ? hiddenInput.value : "farmer";
+    if (currentRole === "admin") {
+        showToast("Ministry Administrator registration is disabled. Credentials must be provisioned directly in the database.", "warning");
+        return;
+    }
     closeLoginModal();
     showRegisterModal(currentRole);
 };
@@ -477,6 +497,10 @@ window.switchToLoginFromRegister = function() {
 };
 
 window.showRegisterModal = function(role = "farmer") {
+    if (role === "admin") {
+        showToast("Ministry Administrator registration through portal is disabled. Credentials must be provisioned directly in the database.", "warning");
+        return;
+    }
     if (api.currentUser) {
         showToast(`You are already logged into the ${api.currentUser.role.toUpperCase()} panel. To register or login to another panel, first logout from the already logged in panel.`, "warning");
         return;
@@ -687,8 +711,16 @@ function initEventListeners() {
                     password, confirm_password,
                     latitude: lat, longitude: lng
                 });
-                showToast(res.message, "success");
+
                 closeRegisterModal();
+                if (regForm) regForm.reset();
+
+                if (role === "farmer" && res.status === "pending") {
+                    showFarmerPendingNotice(name);
+                    return;
+                }
+
+                showToast(res.message, "success");
                 setRolePortal(role);
                 // Auto-detect regional language only for farmers
                 if (role === 'farmer' && state) {
@@ -698,6 +730,19 @@ function initEventListeners() {
                 showToast(err.message, "error");
             }
         });
+    }
+
+    function showFarmerPendingNotice(farmerName) {
+        showToast("Registration submitted! Awaiting Ministry Admin approval.", "info");
+        setTimeout(() => {
+            alert(
+                `🌾 REGISTRATION APPLICATION SUBMITTED!\n\n` +
+                `Welcome to KisanSetu, ${farmerName}!\n\n` +
+                `Your farmer registration application has been forwarded directly to the Ministry Administrator Dashboard for verification and approval.\n\n` +
+                `Once reviewed and approved by the Ministry Admin, you will be able to sign in to your Farmer Portal using your mobile number and password.\n\n` +
+                `Thank you for joining KisanSetu!`
+            );
+        }, 100);
     }
 
     // Farmer Add Product Form
@@ -804,3 +849,16 @@ window.addEventListener("languageChanged", () => {
         initLogisticsView();
     }
 });
+
+// Show / Hide Password Visibility Toggle
+window.togglePasswordVisibility = function(inputId, btn) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const isPass = input.type === "password";
+    input.type = isPass ? "text" : "password";
+    const icon = btn.querySelector(".eye-icon") || btn;
+    icon.textContent = isPass ? "🙈" : "👁️";
+    btn.setAttribute("aria-label", isPass ? "Hide password" : "Show password");
+    btn.title = isPass ? "Hide password" : "Show password";
+};
+

@@ -3265,3 +3265,71 @@ a {
     }
 }
 
+/* ====================================================================
+   SWIGGY-STYLE PAYMENT COMPLETION & FARMER TRANSACTION DASHBOARD STYLES
+   ==================================================================== */
+
+.swiggy-payment-card {
+    border: none;
+    background: #ffffff;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.payment-method-btn {
+    flex: 1;
+    min-width: 130px;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.payment-method-btn:hover {
+    border-color: #fc8019;
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.payment-method-btn.active {
+    background: #fc8019;
+    color: #ffffff;
+    border-color: #ea580c;
+    box-shadow: 0 2px 8px rgba(252, 128, 25, 0.35);
+}
+
+@media (max-width: 768px) {
+    .swiggy-pay-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .swiggy-pay-footer {
+        flex-direction: column-reverse;
+        gap: 12px;
+    }
+    .swiggy-pay-footer button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+#fakePaymentSuccessModal .modal-content-card {
+    animation: popSuccess 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popSuccess {
+    from {
+        transform: scale(0.85);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+
