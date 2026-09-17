@@ -35,7 +35,7 @@ const FarmerController = {
         if (cropSelect && !cropSelect.dataset.bound) {
             cropSelect.dataset.bound = "true";
             cropSelect.addEventListener("change", (e) => {
-                this.loadFarmerAIForecast(e.target.value);
+                this.onCropSelectChange(e.target.value);
             });
         }
 
@@ -57,15 +57,48 @@ const FarmerController = {
         }
     },
 
-    // --- AI Demand Forecasting for Farmers ---
+    onCropSelectChange(val) {
+        const customWrap = document.getElementById("farmerAICustomCropWrapper");
+        if (val === "Custom") {
+            if (customWrap) {
+                customWrap.style.display = "inline-flex";
+                const input = document.getElementById("farmerAICustomCropInput");
+                if (input) input.focus();
+            }
+        } else {
+            if (customWrap) customWrap.style.display = "none";
+            this.loadFarmerAIForecast(val);
+        }
+    },
+
+    loadCustomCropForecast() {
+        const input = document.getElementById("farmerAICustomCropInput");
+        const crop = (input ? input.value : "").trim();
+        if (!crop) {
+            if (window.showToast) window.showToast("Please enter a crop name to analyze.", "warning");
+            return;
+        }
+        this.loadFarmerAIForecast(crop);
+    },
+
+    // --- AI Demand & Price Forecasting for Farmers ---
     async loadFarmerAIForecast(commodity = null) {
         const cropSelect = document.getElementById("farmerAICropSelect");
-        const targetCrop = commodity || (cropSelect ? cropSelect.value : "Ponni Raw Rice (Organic)");
+        let targetCrop = commodity;
+        if (!targetCrop) {
+            targetCrop = (cropSelect && cropSelect.value !== "Custom") ? cropSelect.value : "Tomato";
+        }
+
         const statsGrid = document.getElementById("farmerAIStatsGrid");
         const insightEl = document.getElementById("farmerAIInsightText");
 
         if (statsGrid) {
-            statsGrid.innerHTML = `<div class="text-muted small py-2">Consulting KisanSetu AI Demand Engine...</div>`;
+            statsGrid.innerHTML = `
+                <div class="text-muted small py-3" style="display: flex; align-items: center; gap: 8px;">
+                    <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                    <span>Consulting Google Gemini AI for <strong>${targetCrop}</strong> market trend & pricing...</span>
+                </div>
+            `;
         }
 
         try {
@@ -73,25 +106,29 @@ const FarmerController = {
             this.latestAIForecast = res;
 
             if (statsGrid) {
+                const sourceBadge = (res.source === "Google Gemini AI") 
+                    ? `<span class="badge" style="background:#1a73e8; color:white; font-size:10px; margin-left:4px;">Gemini AI</span>`
+                    : `<span class="badge badge-secondary" style="font-size:10px;">ML Heuristic</span>`;
+
                 statsGrid.innerHTML = `
                     <div class="farmer-ai-box">
-                        <div class="lbl">${i18n.t("demand_score")}</div>
+                        <div class="lbl">${i18n.t("demand_score")} ${sourceBadge}</div>
                         <div class="val">${res.demand_index} / 100</div>
-                        <div class="sub">${res.demand_index >= 75 ? '🔥 ' + i18n.t("high_demand") : '⚖️ ' + i18n.t("moderate_demand")}</div>
+                        <div class="sub">${res.demand_index >= 75 ? '🔥 ' + i18n.t("high_demand") : '⚖️ ' + i18n.t("moderate_demand")} (${res.demand_rating || 'Active'})</div>
                     </div>
                     <div class="farmer-ai-box">
                         <div class="lbl">${i18n.t("retail_guidance")}</div>
-                        <div class="val">${res.price_guidance.recommended_retail_slab}</div>
-                        <div class="sub">${i18n.t("slab_tier_retail")}</div>
+                        <div class="val" style="color: #16a34a;">${res.price_guidance.recommended_retail_slab}</div>
+                        <div class="sub">${i18n.t("slab_tier_retail")} (Direct Consumer)</div>
                     </div>
                     <div class="farmer-ai-box">
                         <div class="lbl">${i18n.t("bulk_guidance")}</div>
-                        <div class="val">${res.price_guidance.recommended_bulk_slab}</div>
-                        <div class="sub">${i18n.t("slab_tier_bulk")}</div>
+                        <div class="val" style="color: #0284c7;">${res.price_guidance.recommended_bulk_slab}</div>
+                        <div class="sub">${i18n.t("slab_tier_bulk")} (Wholesale / Institutions)</div>
                     </div>
                     <div class="farmer-ai-box">
                         <div class="lbl">${i18n.t("msp_baseline")}</div>
-                        <div class="val" style="color: #0284c7;">₹${res.price_guidance.government_msp} / kg</div>
+                        <div class="val" style="color: #6366f1;">₹${res.price_guidance.government_msp} / kg</div>
                         <div class="sub">${i18n.t("lbl_trend")}: ${i18n.translateTrend ? i18n.translateTrend(res.price_guidance.trend) : res.price_guidance.trend}</div>
                     </div>
                 `;
@@ -100,12 +137,72 @@ const FarmerController = {
             if (insightEl) {
                 const outlookLabel = i18n.t("ai_outlook_label");
                 const outlookText = i18n.translateInsight ? i18n.translateInsight(res.market_insights, targetCrop) : res.market_insights;
-                const comparisonText = i18n.t("ai_fair_price_comparison");
-                insightEl.innerHTML = `💡 <strong>${outlookLabel}:</strong> ${outlookText}. ${comparisonText}`;
+                insightEl.innerHTML = `💡 <strong>${outlookLabel} (${res.commodity}):</strong> ${outlookText}`;
             }
         } catch (err) {
             console.error("Farmer AI forecast error:", err);
             if (statsGrid) statsGrid.innerHTML = `<div class="text-muted small">${i18n.t("ai_error_hint")}</div>`;
+        }
+    },
+
+    // --- Instant 1-Click AI Price Suggestion for Farmer Form ---
+    async suggestPriceForCurrentCrop() {
+        const prodNameInput = document.getElementById("prod_name");
+        let cropName = (prodNameInput ? prodNameInput.value : "").trim();
+        if (!cropName) {
+            const cropSelect = document.getElementById("farmerAICropSelect");
+            if (cropSelect && cropSelect.value && cropSelect.value !== "Custom") {
+                cropName = cropSelect.value;
+                if (prodNameInput) prodNameInput.value = cropName;
+            } else {
+                cropName = "Tomato";
+                if (prodNameInput) prodNameInput.value = "Tomato";
+            }
+        }
+
+        const btn = document.getElementById("btnAISuggestPrice");
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `⏳ Analyzing...`;
+        }
+
+        try {
+            if (window.showToast) window.showToast(`Asking Google Gemini AI for recent mandi trends on '${cropName}'...`, "info");
+            const res = await api.suggestCropPrice(cropName);
+            if (res && res.success) {
+                this.latestAIForecast = res;
+                this.applyAIPricesToSlabs();
+                
+                // Update forecast card display as well
+                this.loadFarmerAIForecast(cropName);
+
+                // Auto-detect category
+                const catSelect = document.getElementById("prod_category");
+                if (catSelect) {
+                    const cLower = cropName.toLowerCase();
+                    if (cLower.includes("tomato") || cLower.includes("onion") || cLower.includes("potato") || cLower.includes("chilli") || cLower.includes("cabbage")) {
+                        catSelect.value = "Vegetables";
+                    } else if (cLower.includes("rice") || cLower.includes("wheat") || cLower.includes("corn") || cLower.includes("paddy")) {
+                        catSelect.value = "Grains";
+                    } else if (cLower.includes("grape") || cLower.includes("banana") || cLower.includes("mango") || cLower.includes("apple")) {
+                        catSelect.value = "Fruits";
+                    }
+                }
+
+                if (window.showToast) {
+                    window.showToast(`✨ Gemini AI suggested: ${res.price_guidance.recommended_retail_slab} retail, ${res.price_guidance.recommended_bulk_slab} wholesale for ${cropName}!`, "success");
+                }
+            } else {
+                throw new Error("Could not calculate AI price");
+            }
+        } catch (err) {
+            console.error("AI Price Suggestion Error:", err);
+            if (window.showToast) window.showToast("Failed to calculate AI price: " + err.message, "error");
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `✨ AI Price Suggestion`;
+            }
         }
     },
 
@@ -115,19 +212,24 @@ const FarmerController = {
             return;
         }
 
-        const guidance = this.latestAIForecast.price_guidance;
-        const retailStr = guidance.recommended_retail_slab.replace(/[^0-9.]/g, "");
-        const bulkStr = guidance.recommended_bulk_slab.replace(/[^0-9.]/g, "");
+        // If Gemini provided exact slabs, use them!
+        if (this.latestAIForecast.suggested_slabs && this.latestAIForecast.suggested_slabs.length === 3) {
+            this.currentSlabs = JSON.parse(JSON.stringify(this.latestAIForecast.suggested_slabs));
+        } else {
+            const guidance = this.latestAIForecast.price_guidance;
+            const retailStr = guidance.recommended_retail_slab.replace(/[^0-9.]/g, "");
+            const bulkStr = guidance.recommended_bulk_slab.replace(/[^0-9.]/g, "");
 
-        const retailPrice = parseFloat(retailStr) || 48.0;
-        const bulkPrice = parseFloat(bulkStr) || 40.0;
-        const midPrice = Math.round(((retailPrice + bulkPrice) / 2) * 10) / 10;
+            const retailPrice = parseFloat(retailStr) || 45.0;
+            const bulkPrice = parseFloat(bulkStr) || 35.0;
+            const midPrice = Math.round(((retailPrice + bulkPrice) / 2) * 10) / 10;
 
-        this.currentSlabs = [
-            { min_quantity: 0, max_quantity: 10, price_per_kg: retailPrice },
-            { min_quantity: 10, max_quantity: 50, price_per_kg: midPrice },
-            { min_quantity: 50, max_quantity: null, price_per_kg: bulkPrice }
-        ];
+            this.currentSlabs = [
+                { min_quantity: 0, max_quantity: 10, price_per_kg: retailPrice },
+                { min_quantity: 10, max_quantity: 50, price_per_kg: midPrice },
+                { min_quantity: 50, max_quantity: null, price_per_kg: bulkPrice }
+            ];
+        }
 
         // Also prefill crop name if empty
         const cropInput = document.getElementById("prod_name");
@@ -136,7 +238,9 @@ const FarmerController = {
         }
 
         this.renderSlabInputs();
-        window.showToast(`Applied AI recommended slabs for ${this.latestAIForecast.commodity}!`, "success");
+        if (window.showToast) {
+            window.showToast(`Applied AI recommended slabs for ${this.latestAIForecast.commodity}!`, "success");
+        }
     },
 
     // --- Slab Pricing Builder ---

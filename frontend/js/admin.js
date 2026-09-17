@@ -588,6 +588,12 @@ const AdminController = {
 
         if (!userId) return;
 
+        if (!reason) {
+            showToast("Please provide a reason for rejection. This reason will be sent to the farmer via SMS.", "error");
+            if (reasonInput) reasonInput.focus();
+            return;
+        }
+
         try {
             const res = await api.reviewFarmerApplication(userId, { action: "reject", reason });
             showToast(res.message || "Farmer application rejected", "info");

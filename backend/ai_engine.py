@@ -6,6 +6,7 @@ Provides:
 """
 
 import numpy as np
+import datetime
 from sklearn.ensemble import RandomForestRegressor
 from flask import Blueprint, jsonify, request
 
@@ -37,41 +38,111 @@ COMMODITY_BASELINES = {
     "Nashik Red Onions": {"msp": 18.0, "fair_market": 26.0, "demand_trend": "+18% (Volatile)", "outlook": "Post-monsoon replenishment cycle"},
     "Sharbati Golden Wheat": {"msp": 28.0, "fair_market": 35.0, "demand_trend": "+8% (Stable)", "outlook": "Consistent household milling demand"},
     "Country Small Onions (Shallots)": {"msp": 35.0, "fair_market": 52.0, "demand_trend": "+12% (Moderate)", "outlook": "Steady demand in southern culinary zones"},
-    "Thompson Seedless Grapes": {"msp": 50.0, "fair_market": 75.0, "demand_trend": "+25% (Peak Season)", "outlook": "High retail supermarket uptake"}
+    "Thompson Seedless Grapes": {"msp": 50.0, "fair_market": 75.0, "demand_trend": "+25% (Peak Season)", "outlook": "High retail supermarket uptake"},
+    "Tomato": {"msp": 18.0, "fair_market": 42.0, "demand_trend": "+16% (Seasonal Shift)", "outlook": "Strong consumer demand with localized mandi supply variance"},
+    "Potato": {"msp": 16.0, "fair_market": 24.0, "demand_trend": "+8% (Steady)", "outlook": "Cold-storage buffer stocks stabilizing regional consumption"}
 }
 
-@ai_bp.route("/forecast", methods=["GET"])
-def get_forecast():
-    commodity = request.args.get("commodity", "Ponni Raw Rice (Organic)")
-    month = int(request.args.get("month", 9)) # Default Sept
+ALL_COMMODITY_LIST = [
+    "Tomato",
+    "Ponni Raw Rice (Organic)",
+    "1121 Traditional Basmati Rice",
+    "Nashik Red Onions",
+    "Country Small Onions (Shallots)",
+    "Sharbati Golden Wheat",
+    "Potato",
+    "Thompson Seedless Grapes",
+    "Green Chilli",
+    "Cabbage",
+    "Fresh Ginger",
+    "Turmeric (Raw)",
+    "Banana (Robusta)",
+    "Cotton (Medium Staple)"
+]
 
-    # Generate prediction using Random Forest
+def _heuristic_forecast(commodity: str, month: int):
+    """Fallback Scikit-learn Random Forest model when Gemini is offline."""
     features = np.array([[month, 6.5, 5.0]])
     predicted_demand_index = float(DEMAND_MODEL.predict(features)[0])
 
     baseline = COMMODITY_BASELINES.get(commodity, {
-        "msp": 30.0,
-        "fair_market": 42.0,
+        "msp": 25.0,
+        "fair_market": 38.0,
         "demand_trend": "+10% (Normal)",
-        "outlook": "Steady regional supply"
+        "outlook": f"Steady regional demand for {commodity}."
     })
 
-    # Recommended farmer price guidance
     suggested_retail = round(baseline["fair_market"] * (1.0 + (predicted_demand_index - 70) / 200), 1)
-    suggested_bulk = round(suggested_retail * 0.85, 1)
+    suggested_bulk = round(suggested_retail * 0.82, 1)
+    mid_price = round((suggested_retail + suggested_bulk) / 2.0, 1)
 
-    return jsonify({
+    return {
         "success": True,
+        "source": "KisanSetu ML Engine (Fallback)",
         "commodity": commodity,
-        "forecast_period": "Upcoming 30-45 Days",
+        "forecast_period": f"Month {month} Agricultural Outlook",
         "demand_index": round(predicted_demand_index, 1),
         "demand_rating": "High Demand" if predicted_demand_index > 75 else "Moderate Demand",
         "market_insights": baseline["outlook"],
+        "perishability": "High" if "Tomato" in commodity or "Onion" in commodity else "Medium",
         "price_guidance": {
             "government_msp": baseline["msp"],
             "recommended_retail_slab": f"₹{suggested_retail} / kg",
             "recommended_bulk_slab": f"₹{suggested_bulk} / kg (>50 kg)",
             "trend": baseline["demand_trend"]
         },
-        "all_commodities": list(COMMODITY_BASELINES.keys())
-    })
+        "suggested_slabs": [
+            {"min_quantity": 0, "max_quantity": 10, "price_per_kg": suggested_retail},
+            {"min_quantity": 10, "max_quantity": 50, "price_per_kg": mid_price},
+            {"min_quantity": 50, "max_quantity": None, "price_per_kg": suggested_bulk}
+        ],
+        "all_commodities": ALL_COMMODITY_LIST
+    }
+
+@ai_bp.route("/forecast", methods=["GET"])
+def get_forecast():
+    """
+    Returns AI Demand and Price Forecast for a selected commodity.
+    Powered by Google Gemini AI with seamless Random Forest ML fallback.
+    """
+    commodity = request.args.get("commodity", "Tomato").strip()
+    month = request.args.get("month")
+    month_int = int(month) if month and month.isdigit() else datetime.datetime.now().month
+
+    # Try Google Gemini AI first
+    try:
+        from backend.gemini_service import get_gemini_crop_price_forecast
+        gemini_res = get_gemini_crop_price_forecast(commodity, region="India", month=month_int)
+        if gemini_res and gemini_res.get("success"):
+            gemini_res["all_commodities"] = ALL_COMMODITY_LIST
+            return jsonify(gemini_res)
+    except Exception as e:
+        print(f"[AIEngine] Gemini forecast fallback triggered for '{commodity}': {e}")
+
+    # Fallback to local heuristic model
+    res = _heuristic_forecast(commodity, month_int)
+    return jsonify(res)
+
+@ai_bp.route("/suggest-price", methods=["GET", "POST"])
+def suggest_price():
+    """
+    Instant Price Calculation for any crop selected or typed by a farmer.
+    Accepts JSON body or query params: { commodity: 'Tomato' }
+    """
+    data = (request.get_json() if request.method == "POST" else None) or {}
+    commodity = (data.get("commodity") or request.args.get("commodity") or "Tomato").strip()
+    month = data.get("month") or request.args.get("month")
+    month_int = int(month) if month and str(month).isdigit() else datetime.datetime.now().month
+
+    try:
+        from backend.gemini_service import get_gemini_crop_price_forecast
+        gemini_res = get_gemini_crop_price_forecast(commodity, region="India", month=month_int)
+        if gemini_res and gemini_res.get("success"):
+            gemini_res["all_commodities"] = ALL_COMMODITY_LIST
+            return jsonify(gemini_res)
+    except Exception as e:
+        print(f"[AIEngine] Suggest price fallback for '{commodity}': {e}")
+
+    res = _heuristic_forecast(commodity, month_int)
+    return jsonify(res)
+

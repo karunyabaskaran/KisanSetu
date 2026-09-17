@@ -223,26 +223,31 @@
             <div class="farmer-ai-demand-card">
                 <div class="farmer-ai-header">
                     <div>
-                        <h3 data-i18n="farmer_ai_title">🤖 AI Crop Demand Forecast & Fair Price Advisor</h3>
+                        <h3 data-i18n="farmer_ai_title">🤖 AI Crop Demand Forecast & Fair Price Advisor <span class="badge" style="background: linear-gradient(135deg, #1a73e8, #4285f4); color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin-left: 6px; font-weight: 500;">✨ Powered by Google Gemini AI</span></h3>
                         <p class="small text-muted mb-0" data-i18n="farmer_ai_subtitle">Plan your harvest and pricing
                             based on real-time market demand and government MSP baselines.</p>
                     </div>
                     <div class="farmer-ai-selector-wrap">
                         <label class="small font-weight-bold mb-0" data-i18n="lbl_select_crop">Select Crop:</label>
                         <select id="farmerAICropSelect" class="form-control"
-                            style="width: auto; display: inline-block;">
-                            <option value="Ponni Raw Rice (Organic)" data-i18n="crop_ponni_rice">Ponni Raw Rice
-                                (Organic)</option>
-                            <option value="1121 Traditional Basmati Rice" data-i18n="crop_basmati_rice">1121 Traditional
-                                Basmati Rice</option>
-                            <option value="Nashik Red Onions" data-i18n="crop_nashik_onion">Nashik Red Onions</option>
-                            <option value="Sharbati Golden Wheat" data-i18n="crop_sharbati_wheat">Sharbati Golden Wheat
-                            </option>
-                            <option value="Country Small Onions (Shallots)" data-i18n="crop_small_onions">Country Small
-                                Onions (Shallots)</option>
-                            <option value="Thompson Seedless Grapes" data-i18n="crop_grapes">Thompson Seedless Grapes
-                            </option>
+                            style="width: auto; display: inline-block;" onchange="FarmerController.onCropSelectChange(this.value)">
+                            <option value="Tomato" selected>🍅 Tomato (Fresh Farmgate)</option>
+                            <option value="Potato">🥔 Potato (Jyoti/Pukhraj)</option>
+                            <option value="Ponni Raw Rice (Organic)" data-i18n="crop_ponni_rice">🌾 Ponni Raw Rice (Organic)</option>
+                            <option value="1121 Traditional Basmati Rice" data-i18n="crop_basmati_rice">🍚 1121 Traditional Basmati Rice</option>
+                            <option value="Nashik Red Onions" data-i18n="crop_nashik_onion">🧅 Nashik Red Onions</option>
+                            <option value="Country Small Onions (Shallots)" data-i18n="crop_small_onions">🧅 Country Small Onions (Shallots)</option>
+                            <option value="Sharbati Golden Wheat" data-i18n="crop_sharbati_wheat">🌾 Sharbati Golden Wheat</option>
+                            <option value="Thompson Seedless Grapes" data-i18n="crop_grapes">🍇 Thompson Seedless Grapes</option>
+                            <option value="Green Chilli">🌶️ Green Chilli (G4)</option>
+                            <option value="Cabbage">🥬 Fresh Cabbage</option>
+                            <option value="Banana (Robusta)">🍌 Banana (Robusta)</option>
+                            <option value="Custom">✏️ Custom / Other Crop...</option>
                         </select>
+                        <div id="farmerAICustomCropWrapper" style="display: none; margin-left: 6px;">
+                            <input type="text" id="farmerAICustomCropInput" class="form-control form-control-sm" placeholder="Type crop name (e.g. Tomato)" style="width: 160px; display: inline-block;">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="FarmerController.loadCustomCropForecast()">Analyze</button>
+                        </div>
                         <button type="button" class="btn btn-sm btn-outline-success" onclick="toggleFarmerAICard()"
                             id="btnToggleFarmerAI">
                             Hide AI Advisor ▲
@@ -274,9 +279,14 @@
                     </div>
                     <form id="addProductForm">
                         <div class="form-group">
-                            <label data-i18n="lbl_crop_name">Product / Crop Name *</label>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label data-i18n="lbl_crop_name" style="margin-bottom: 0;">Product / Crop Name *</label>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAISuggestPrice" onclick="FarmerController.suggestPriceForCurrentCrop()" style="font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 600;">
+                                    ✨ AI Price Suggestion
+                                </button>
+                            </div>
                             <input type="text" id="prod_name" class="form-control" data-i18n-placeholder="ph_crop_name"
-                                placeholder="e.g. Ponni Raw Rice, Nashik Red Onion" required>
+                                placeholder="e.g. Tomato, Ponni Raw Rice, Nashik Red Onion" required>
                         </div>
                         <div class="form-row-2">
                             <div class="form-group">
@@ -1105,6 +1115,33 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Gemini AI Dispatch & Route Advisory Card -->
+                <div class="gemini-route-advisory-card" id="geminiRouteAdvisoryCard" style="margin-top: 1.5rem; background: linear-gradient(135deg, rgba(26, 115, 232, 0.05), rgba(52, 168, 83, 0.05)); border: 1px solid rgba(26, 115, 232, 0.2); border-radius: 12px; padding: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.3rem;">🤖</span>
+                            <h4 style="margin: 0; font-size: 1.1rem; color: #1e293b;">Google Gemini AI Dispatch & Route Advisory</h4>
+                            <span class="badge" style="background: linear-gradient(135deg, #1a73e8, #4285f4); color: white; border-radius: 20px; font-size: 11px; padding: 3px 9px;">Live AI Telemetry</span>
+                        </div>
+                        <span class="badge badge-success" id="geminiAdvisoryEfficiencyBadge" style="font-size: 0.85rem; padding: 4px 10px;">98.5% Optimal Green Corridor</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 0.75rem;">
+                        <div style="background: white; padding: 0.9rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">🧠 Route Strategy & Sequencing</div>
+                            <div id="geminiDispatchStrategy" style="font-size: 13px; color: #1e293b; line-height: 1.45;">Click "Find Best Route" to generate AI dispatch strategy.</div>
+                        </div>
+                        <div style="background: white; padding: 0.9rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #ef4444; margin-bottom: 4px;">🚨 Perishable Cargo & Cold-Chain Priority</div>
+                            <div id="geminiPerishablePriority" style="font-size: 13px; color: #1e293b; line-height: 1.45;">Evaluating cargo perishability across pickup hubs...</div>
+                        </div>
+                        <div style="background: white; padding: 0.9rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #059669; margin-bottom: 4px;">⏰ Recommended Departure Window</div>
+                            <div id="geminiDepartureWindow" style="font-size: 13px; color: #1e293b; line-height: 1.45;">--</div>
+                            <div id="geminiTrafficTip" style="font-size: 12px; color: #64748b; margin-top: 4px; font-style: italic;">--</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1593,18 +1630,24 @@
                         </div>
                     </div>
 
-                    <!-- Buyer OTP Section -->
+                    <!-- OTP Section for Farmer and Consumer -->
                     <div id="buyerOtpSection" class="form-group"
                         style="display: none; background: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-sm); padding: 12px;">
-                        <label data-i18n="lbl_mobile_otp">Mobile OTP Verification (Buyer) *</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="reg_otp" class="form-control" data-i18n-placeholder="ph_otp"
-                                placeholder="Enter 6-digit OTP">
-                            <button type="button" id="btnSendOtp" class="btn btn-sm btn-outline-primary"
-                                style="white-space: nowrap;" data-i18n="btn_send_otp">Send OTP</button>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label style="margin-bottom: 0; font-weight: 600;">Mobile OTP Verification *</label>
+                            <span id="otpVerifiedBadge" class="badge badge-success" style="display: none; font-size: 0.8rem;">Verified ✅</span>
                         </div>
-                        <small class="text-muted" data-i18n="sub_otp_notice">Click 'Send OTP' to simulate SMS dispatch
-                            with test OTP auto-fill.</small>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="reg_otp" class="form-control" maxlength="6"
+                                placeholder="Enter 6-digit OTP" autocomplete="off">
+                            <button type="button" id="btnSendOtp" class="btn btn-sm btn-outline-primary"
+                                style="white-space: nowrap;">Get OTP</button>
+                            <button type="button" id="btnVerifyOtp" class="btn btn-sm btn-success"
+                                style="white-space: nowrap;">Verify OTP</button>
+                        </div>
+                        <small id="otpStatusHint" class="text-muted" style="display: block; margin-top: 6px;">
+                            Click 'Get OTP' to receive an SMS code, then enter the 6 digits manually.
+                        </small>
                     </div>
 
                     <!-- Farmer GPS & Interactive Map Picker -->
@@ -1750,11 +1793,7 @@
                             <strong id="cartSummaryTransportCost">₹0.00</strong>
                         </div>
                         <div style="display: flex; justify-content: space-between;">
-                            <span class="text-muted">3. Eco Food-Grade Crating & Packaging:</span>
-                            <strong id="cartSummaryPackagingCost">₹0.00</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span class="text-muted">4. Applicable GST & Mandi Cess (5%):</span>
+                            <span class="text-muted">3. Applicable GST & Mandi Cess (5%):</span>
                             <strong id="cartSummaryTaxCost">₹0.00</strong>
                         </div>
                         <hr style="margin: 6px 0; border: none; border-top: 1px solid #cbd5e1;">
@@ -1932,10 +1971,6 @@
                                 <div style="display: flex; justify-content: space-between;">
                                     <span>Consolidated Delivery Partner Fee</span>
                                     <span id="swiggyDeliveryFee" style="font-weight: 600; color: #1e293b;">₹0.00</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Eco Food-Grade Packaging</span>
-                                    <span id="swiggyPackagingFee" style="font-weight: 600; color: #1e293b;">₹0.00</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between;">
                                     <span>Mandi Taxes & Govt Cess (5%)</span>

@@ -11,4 +11,6 @@ services:
         value: "1"
       - key: FIREBASE_CREDENTIALS
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
 

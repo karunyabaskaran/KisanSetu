@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 scratch/
 .system_generated/
+node_modules/
+.env
+*.env
+kisanconnect/

@@ -127,16 +127,16 @@ const BuyerCart = {
         const productCost = this.items.reduce((sum, i) => sum + (i.unit_price * i.quantity), 0);
         const totalWeight = this.items.reduce((sum, i) => sum + i.quantity, 0);
         const transportCost = distinctCount > 0 ? (60.0 + (totalWeight * 1.5)) : 0;
-        const packagingCost = distinctCount > 0 ? (30.0 + (distinctCount * 10)) : 0;
-        const taxAmount = (productCost + transportCost + packagingCost) * 0.05;
-        const totalPayable = productCost + transportCost + packagingCost + taxAmount;
+        const packagingCost = 0.0;
+        const taxAmount = (productCost + transportCost) * 0.05;
+        const totalPayable = productCost + transportCost + taxAmount;
 
         return {
             distinctCount,
             canCheckout,
             productCost: parseFloat(productCost.toFixed(2)),
             transportCost: parseFloat(transportCost.toFixed(2)),
-            packagingCost: parseFloat(packagingCost.toFixed(2)),
+            packagingCost: 0.0,
             taxAmount: parseFloat(taxAmount.toFixed(2)),
             totalPayable: parseFloat(totalPayable.toFixed(2)),
             totalWeight: parseFloat(totalWeight.toFixed(1))
@@ -796,12 +796,14 @@ const BuyerController = {
                             <span class="text-muted">2. Transportation / Logistics Cost:</span>
                             <strong>₹${transportCost.toFixed(2)}</strong>
                         </div>
+                        ${packagingCost > 0 ? `
                         <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 4px;">
                             <span class="text-muted">3. Food-Grade Packaging & Crating:</span>
                             <strong>₹${packagingCost.toFixed(2)}</strong>
                         </div>
+                        ` : ''}
                         <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 6px;">
-                            <span class="text-muted">4. Applicable Tax (GST / Mandi Cess 5%):</span>
+                            <span class="text-muted">${packagingCost > 0 ? '4' : '3'}. Applicable Tax (GST / Mandi Cess 5%):</span>
                             <strong>₹${taxCost.toFixed(2)}</strong>
                         </div>
                         <hr style="margin: 6px 0; border-top: 1px solid #cbd5e1;">

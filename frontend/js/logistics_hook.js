@@ -983,6 +983,7 @@ const LogisticsHook = {
 
             this.currentRouteData = data;
             this.renderKPIs(data.route_summary);
+            this.renderGeminiAdvisory(data.gemini_advisory);
             this.renderMapRoutes(data.waypoints, data.traffic_segments);
             this.renderItinerary(data.waypoints);
 
@@ -1023,6 +1024,24 @@ const LogisticsHook = {
         if (deliveriesCountEl) deliveriesCountEl.innerText = `${summary.orders_delivered} Drops`;
         if (scoreBadge) scoreBadge.innerText = summary.optimization_score || "98.4% Efficiency";
         if (legCountBadge) legCountBadge.innerText = `${(summary.hubs_collected + summary.orders_delivered + 1)} Stops`;
+    },
+
+    renderGeminiAdvisory(advisory) {
+        if (!advisory) return;
+        const card = document.getElementById("geminiRouteAdvisoryCard");
+        if (card) card.style.display = "block";
+
+        const stratEl = document.getElementById("geminiDispatchStrategy");
+        const perishEl = document.getElementById("geminiPerishablePriority");
+        const depEl = document.getElementById("geminiDepartureWindow");
+        const tipEl = document.getElementById("geminiTrafficTip");
+        const badgeEl = document.getElementById("geminiAdvisoryEfficiencyBadge");
+
+        if (stratEl && advisory.dispatch_strategy) stratEl.innerText = advisory.dispatch_strategy;
+        if (perishEl && advisory.perishable_cargo_priority) perishEl.innerText = advisory.perishable_cargo_priority;
+        if (depEl && advisory.recommended_departure_window) depEl.innerText = advisory.recommended_departure_window;
+        if (tipEl && advisory.traffic_mitigation_tip) tipEl.innerText = `💡 ${advisory.traffic_mitigation_tip}`;
+        if (badgeEl && advisory.fuel_efficiency_score) badgeEl.innerText = advisory.fuel_efficiency_score;
     },
 
     renderMapRoutes(waypoints, trafficSegments) {

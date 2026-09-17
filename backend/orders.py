@@ -11,6 +11,7 @@ import random
 import uuid
 from flask import Blueprint, request, jsonify
 from backend.db import get_db
+from backend.sms_service import send_order_confirmation_sms, send_farmer_new_order_sms, send_order_status_sms
 
 orders_bp = Blueprint("orders", __name__)
 
@@ -260,9 +261,9 @@ def create_order():
 
     product_cost = round(unit_price * quantity, 2)
     transport_cost = float(data.get("transport_cost") or round(35.0 + (quantity * 1.2), 2))
-    packaging_cost = float(data.get("packaging_cost") or round(15.0 + (quantity * 0.4), 2))
-    tax_amount = float(data.get("tax_amount") or round((product_cost + transport_cost + packaging_cost) * 0.05, 2))
-    total_amount = round(product_cost + transport_cost + packaging_cost + tax_amount, 2)
+    packaging_cost = 0.0
+    tax_amount = float(data.get("tax_amount") or round((product_cost + transport_cost) * 0.05, 2))
+    total_amount = round(product_cost + transport_cost + tax_amount, 2)
     payment_status = "paid" if payment_mode in ["UPI", "CARD"] else "pending_cod"
 
     # Resolve Farmer GPS Coordinates & Nearest Origin Hub
@@ -321,7 +322,21 @@ def create_order():
 
         conn.commit()
         order_id = cursor.lastrowid
+
+        # Fetch farmer mobile for order dispatch SMS
+        cursor.execute("SELECT mobile FROM users WHERE id = ?", (product["farmer_id"],))
+        farmer_user = cursor.fetchone()
+        farmer_mobile = farmer_user["mobile"] if farmer_user else None
         conn.close()
+
+        # Dispatch real-time SMS notifications
+        try:
+            if buyer.get("mobile"):
+                send_order_confirmation_sms(buyer["mobile"], buyer["name"], order_number, product["name"], quantity, total_amount)
+            if farmer_mobile:
+                send_farmer_new_order_sms(farmer_mobile, product["farmer_name"], order_number, product["name"], quantity, total_amount)
+        except Exception:
+            pass
 
         return jsonify({
             "success": True,
@@ -420,11 +435,10 @@ def create_cart_order():
 
     # Consolidated logistics fee: base ₹50 + ₹1.5 per kg for consolidated delivery
     total_transport_cost = round(50.0 + (total_weight_kg * 1.5), 2)
-    # Eco-friendly consolidated packaging: ₹15 base + ₹5 per product type
-    total_packaging_cost = round(15.0 + (len(validated_items) * 5.0), 2)
-    # GST / Tax: 5%
-    total_tax_amount = round((total_produce_cost + total_transport_cost + total_packaging_cost) * 0.05, 2)
-    grand_total = round(total_produce_cost + total_transport_cost + total_packaging_cost + total_tax_amount, 2)
+    total_packaging_cost = 0.0
+    # GST / Tax: 5% on produce and logistics
+    total_tax_amount = round((total_produce_cost + total_transport_cost) * 0.05, 2)
+    grand_total = round(total_produce_cost + total_transport_cost + total_tax_amount, 2)
 
     created_orders = []
 
@@ -435,12 +449,12 @@ def create_cart_order():
             unit_price = val["unit_price"]
             item_prod_cost = val["product_cost"]
 
-            # Proportionate allocation of transport, packaging, and tax per item for accurate item invoicing
+            # Proportionate allocation of transport and tax per item for accurate item invoicing
             share_ratio = item_prod_cost / total_produce_cost if total_produce_cost > 0 else (1.0 / len(validated_items))
             item_transport = round(total_transport_cost * share_ratio, 2)
-            item_packaging = round(total_packaging_cost * share_ratio, 2)
+            item_packaging = 0.0
             item_tax = round(total_tax_amount * share_ratio, 2)
-            item_total = round(item_prod_cost + item_transport + item_packaging + item_tax, 2)
+            item_total = round(item_prod_cost + item_transport + item_tax, 2)
 
             cursor.execute("SELECT latitude, longitude FROM users WHERE id = ?", (prod["farmer_id"],))
             f_user = cursor.fetchone()
@@ -488,11 +502,38 @@ def create_cart_order():
                 "product_name": prod["name"],
                 "quantity": qty,
                 "unit_price": unit_price,
-                "total_amount": item_total
+                "total_amount": item_total,
+                "farmer_id": prod["farmer_id"],
+                "farmer_name": prod["farmer_name"]
             })
 
         conn.commit()
+
+        # Gather farmer mobiles to dispatch real-time SMS notifications to each farmer
+        farmer_ids = list(set([item["farmer_id"] for item in created_orders]))
+        farmer_mobiles = {}
+        if farmer_ids:
+            placeholders = ",".join(["?"] * len(farmer_ids))
+            cursor.execute(f"SELECT id, name, mobile FROM users WHERE id IN ({placeholders})", farmer_ids)
+            for f_row in cursor.fetchall():
+                farmer_mobiles[f_row["id"]] = (f_row["name"], f_row["mobile"])
+
         conn.close()
+
+        # Dispatch real-time SMS notifications
+        try:
+            # Notify Buyer
+            if buyer.get("mobile"):
+                summary_crop = created_orders[0]["product_name"] + (f" + {len(created_orders)-1} more" if len(created_orders) > 1 else "")
+                send_order_confirmation_sms(buyer["mobile"], buyer["name"], batch_group_id, summary_crop, total_weight_kg, grand_total)
+
+            # Notify each Farmer
+            for ord_item in created_orders:
+                f_info = farmer_mobiles.get(ord_item["farmer_id"])
+                if f_info and f_info[1]:
+                    send_farmer_new_order_sms(f_info[1], f_info[0], ord_item["order_number"], ord_item["product_name"], ord_item["quantity"], ord_item["total_amount"])
+        except Exception:
+            pass
 
         return jsonify({
             "success": True,
@@ -721,6 +762,13 @@ def update_status():
 
     conn.commit()
     conn.close()
+
+    # Dispatch SMS to buyer regarding status update
+    try:
+        if order_dict.get("buyer_mobile"):
+            send_order_status_sms(order_dict["buyer_mobile"], order_dict.get("order_number") or f"ORD-{order_id}", new_status)
+    except Exception:
+        pass
 
     return jsonify({
         "success": True,

@@ -6,40 +6,51 @@ Supports Farmer (GPS + Village + District), Buyer (with OTP), Logistics, and Min
 import random
 from flask import Blueprint, request, jsonify
 from backend.db import get_db
+from backend.sms_service import send_otp_sms
 
 auth_bp = Blueprint("auth", __name__)
 
-# Temporary in-memory OTP cache for demo/testing (in production, use SMS Gateway like Fast2SMS/Twilio)
+# In-memory OTP cache for verification
 OTP_STORE = {}
 
 @auth_bp.route("/send-otp", methods=["POST"])
 def send_otp():
-    """Generates an OTP for Buyer mobile verification"""
+    """Generates an OTP for Buyer / Farmer mobile verification and dispatches real SMS"""
     data = request.get_json() or {}
-    mobile = data.get("mobile")
-    if not mobile or len(str(mobile)) < 10:
+    mobile = str(data.get("mobile", "")).strip()
+    role = (data.get("role") or "user").strip().lower()
+    if not mobile or len(mobile) < 10:
         return jsonify({"success": False, "message": "Please provide a valid 10-digit mobile number"}), 400
 
     otp = str(random.randint(100000, 999999))
     OTP_STORE[str(mobile)] = otp
-    # For quick testing, we return the generated OTP in the response payload alongside simulating SMS dispatch
+    OTP_STORE[f"verified_{mobile}"] = False
+
+    # Dispatch via SMS gateway (Twilio / Fast2SMS / Console fallback)
+    sms_res = send_otp_sms(str(mobile), otp, role=role)
+
+    role_label = "Farmer" if role == "farmer" else ("Consumer" if role == "buyer" else "")
+    disp_role = f" ({role_label})" if role_label else ""
+
+    # Note: test_otp is NOT returned to ensure user manually enters the OTP received via Twilio
     return jsonify({
         "success": True,
-        "message": f"OTP successfully dispatched to +91-{mobile}",
-        "test_otp": otp
+        "message": f"{disp_role} OTP successfully dispatched to +91-{mobile}. Please enter the 6-digit code received.".strip(),
+        "sms_provider": sms_res.get("provider", "console")
     })
 
 @auth_bp.route("/verify-otp", methods=["POST"])
 def verify_otp():
-    """Verifies buyer entered OTP"""
+    """Verifies buyer / farmer entered OTP"""
     data = request.get_json() or {}
-    mobile = str(data.get("mobile", ""))
-    entered_otp = str(data.get("otp", ""))
+    mobile = str(data.get("mobile", "")).strip()
+    entered_otp = str(data.get("otp", "")).strip()
 
     stored_otp = OTP_STORE.get(mobile)
     if stored_otp and stored_otp == entered_otp:
-        return jsonify({"success": True, "message": "Mobile number verified successfully"})
-    return jsonify({"success": False, "message": "Invalid or expired OTP. Please try again."}), 400
+        OTP_STORE[f"verified_{mobile}"] = True
+        return jsonify({"success": True, "message": "Mobile number verified successfully! You can now proceed."})
+    return jsonify({"success": False, "message": "Invalid or expired OTP. Please check your SMS and try again."}), 400
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
@@ -72,6 +83,15 @@ def register():
     if password != confirm_password:
         return jsonify({"success": False, "message": "Passwords do not match"}), 400
 
+    # Enforce OTP verification for both farmer and buyer
+    entered_otp = str(data.get("otp", "")).strip()
+    is_verified = OTP_STORE.get(f"verified_{mobile}") or (OTP_STORE.get(mobile) and OTP_STORE.get(mobile) == entered_otp)
+    if role in ["farmer", "buyer"] and not is_verified:
+        return jsonify({
+            "success": False,
+            "message": f"Mobile OTP verification required. Please click 'Get OTP' and enter the 6-digit code received on your mobile."
+        }), 400
+
     conn = get_db()
     cursor = conn.cursor()
 
@@ -80,6 +100,10 @@ def register():
     if cursor.fetchone():
         conn.close()
         return jsonify({"success": False, "message": f"An account with mobile {mobile} already exists."}), 400
+
+    # Clear OTP state after successful validation
+    OTP_STORE.pop(mobile, None)
+    OTP_STORE.pop(f"verified_{mobile}", None)
 
     try:
         status = "pending" if role == "farmer" else "approved"

@@ -561,6 +561,23 @@ window.showRegisterModal = function(role = "farmer") {
 
     toggleRegisterFields(role);
 
+    // Reset OTP verification UI state
+    window._isRegistrationOtpVerified = null;
+    const otpBadge = document.getElementById("otpVerifiedBadge");
+    if (otpBadge) otpBadge.style.display = "none";
+    const otpInput = document.getElementById("reg_otp");
+    if (otpInput) otpInput.value = "";
+    const hintEl = document.getElementById("otpStatusHint");
+    if (hintEl) {
+        hintEl.textContent = "Click 'Get OTP' to receive an SMS code, then enter the 6 digits manually.";
+        hintEl.className = "text-muted small";
+    }
+    const btnV = document.getElementById("btnVerifyOtp");
+    if (btnV) {
+        btnV.disabled = false;
+        btnV.textContent = "Verify OTP";
+    }
+
     const modal = document.getElementById("registerModal");
     if (modal) {
         modal.classList.add("active");
@@ -589,7 +606,8 @@ function toggleRegisterFields(role) {
     const mapSection = document.getElementById("farmerMapSection");
     const villageGroup = document.getElementById("villageFieldGroup");
 
-    if (otpSection) otpSection.style.display = isBuyer ? "block" : "none";
+    // Enable OTP verification for BOTH Farmer and Consumer
+    if (otpSection) otpSection.style.display = (isBuyer || isFarmer) ? "block" : "none";
     if (mapSection) mapSection.style.display = isFarmer ? "block" : "none";
     if (villageGroup) villageGroup.style.display = isFarmer ? "block" : "none";
 }
@@ -657,24 +675,105 @@ function initEventListeners() {
         });
     }
 
-    // OTP Send / Verify for Buyer
+    // OTP Send (Get OTP) for Buyer & Farmer
     const btnSendOtp = document.getElementById("btnSendOtp");
     if (btnSendOtp) {
         btnSendOtp.addEventListener("click", async () => {
-            const mobile = document.getElementById("reg_mobile").value.trim();
+            const mobileInput = document.getElementById("reg_mobile");
+            const mobile = mobileInput ? mobileInput.value.trim() : "";
+            const role = document.getElementById("reg_role").value || "user";
+
             if (!mobile || mobile.length < 10) {
                 showToast("Please enter a valid 10-digit mobile number.", "error");
+                if (mobileInput) mobileInput.focus();
                 return;
             }
+
+            // Disable button during dispatch
+            btnSendOtp.disabled = true;
+            btnSendOtp.textContent = "Sending...";
+
             try {
-                const res = await api.sendOtp(mobile);
-                showToast(res.message, "success");
-                if (res.test_otp) {
-                    document.getElementById("reg_otp").value = res.test_otp;
-                    showToast(`Demo OTP Auto-Filled: ${res.test_otp}`, "info");
+                const res = await api.sendOtp(mobile, role);
+                showToast(res.message || "OTP dispatched via Twilio SMS!", "success");
+
+                // Strictly clear the OTP input so user must manually type the code received on phone
+                const regOtpInput = document.getElementById("reg_otp");
+                if (regOtpInput) {
+                    regOtpInput.value = "";
+                    regOtpInput.focus();
                 }
+
+                // Reset verified badge
+                window._isRegistrationOtpVerified = null;
+                const badge = document.getElementById("otpVerifiedBadge");
+                if (badge) badge.style.display = "none";
+
+                const hintEl = document.getElementById("otpStatusHint");
+                if (hintEl) {
+                    hintEl.textContent = `SMS code sent to +91-${mobile} via Twilio. Enter the 6-digit code and click Verify OTP.`;
+                    hintEl.className = "text-primary small";
+                }
+
+                // 30s Cooldown Countdown
+                let countdown = 30;
+                btnSendOtp.textContent = `Resend (${countdown}s)`;
+                const timer = setInterval(() => {
+                    countdown -= 1;
+                    if (countdown <= 0) {
+                        clearInterval(timer);
+                        btnSendOtp.disabled = false;
+                        btnSendOtp.textContent = "Get OTP";
+                    } else {
+                        btnSendOtp.textContent = `Resend (${countdown}s)`;
+                    }
+                }, 1000);
+
             } catch (err) {
-                showToast(err.message, "error");
+                showToast(err.message || "Failed to send SMS OTP", "error");
+                btnSendOtp.disabled = false;
+                btnSendOtp.textContent = "Get OTP";
+            }
+        });
+    }
+
+    // Explicit Verify OTP Button
+    const btnVerifyOtp = document.getElementById("btnVerifyOtp");
+    if (btnVerifyOtp) {
+        btnVerifyOtp.addEventListener("click", async () => {
+            const mobile = document.getElementById("reg_mobile").value.trim();
+            const otp = document.getElementById("reg_otp").value.trim();
+
+            if (!mobile || mobile.length < 10) {
+                showToast("Please enter your 10-digit mobile number first.", "error");
+                return;
+            }
+            if (!otp || otp.length < 6) {
+                showToast("Please enter the complete 6-digit OTP code received via SMS.", "error");
+                document.getElementById("reg_otp").focus();
+                return;
+            }
+
+            try {
+                btnVerifyOtp.disabled = true;
+                btnVerifyOtp.textContent = "Verifying...";
+                const res = await api.verifyOtp(mobile, otp);
+                showToast(res.message || "Mobile number verified successfully!", "success");
+
+                window._isRegistrationOtpVerified = mobile;
+                const badge = document.getElementById("otpVerifiedBadge");
+                if (badge) badge.style.display = "inline-block";
+
+                const hintEl = document.getElementById("otpStatusHint");
+                if (hintEl) {
+                    hintEl.textContent = "✅ Mobile verified! Please fill in your remaining details and submit registration.";
+                    hintEl.className = "text-success small fw-bold";
+                }
+                btnVerifyOtp.textContent = "Verified ✓";
+            } catch (err) {
+                showToast(err.message || "Invalid OTP code. Please check your SMS and retry.", "error");
+                btnVerifyOtp.disabled = false;
+                btnVerifyOtp.textContent = "Verify OTP";
             }
         });
     }
@@ -697,11 +796,22 @@ function initEventListeners() {
             const lat = document.getElementById("reg_lat") ? parseFloat(document.getElementById("reg_lat").value) : null;
             const lng = document.getElementById("reg_lng") ? parseFloat(document.getElementById("reg_lng").value) : null;
 
-            if (role === "buyer") {
+            if (role === "buyer" || role === "farmer") {
                 const enteredOtp = document.getElementById("reg_otp").value.trim();
-                if (!enteredOtp) {
-                    showToast("Please verify OTP for buyer registration.", "error");
+                if (!enteredOtp || enteredOtp.length !== 6) {
+                    showToast(`Please click 'Get OTP' and enter the 6-digit SMS code received on your mobile.`, "error");
+                    document.getElementById("reg_otp").focus();
                     return;
+                }
+                // Verify if not already verified
+                if (window._isRegistrationOtpVerified !== mobile) {
+                    try {
+                        await api.verifyOtp(mobile, enteredOtp);
+                        window._isRegistrationOtpVerified = mobile;
+                    } catch (err) {
+                        showToast(err.message || "Invalid OTP code. Please enter the code sent to your phone.", "error");
+                        return;
+                    }
                 }
             }
 
@@ -709,11 +819,13 @@ function initEventListeners() {
                 const res = await api.register({
                     role, name, mobile, state, district, address, village, pincode,
                     password, confirm_password,
+                    otp: document.getElementById("reg_otp").value.trim(),
                     latitude: lat, longitude: lng
                 });
 
                 closeRegisterModal();
                 if (regForm) regForm.reset();
+                window._isRegistrationOtpVerified = null;
 
                 if (role === "farmer" && res.status === "pending") {
                     showFarmerPendingNotice(name);
@@ -733,14 +845,15 @@ function initEventListeners() {
     }
 
     function showFarmerPendingNotice(farmerName) {
-        showToast("Registration submitted! Awaiting Ministry Admin approval.", "info");
+        showToast("Registration submitted with verified mobile! Awaiting Ministry approval.", "info");
         setTimeout(() => {
             alert(
                 `🌾 REGISTRATION APPLICATION SUBMITTED!\n\n` +
                 `Welcome to KisanSetu, ${farmerName}!\n\n` +
-                `Your farmer registration application has been forwarded directly to the Ministry Administrator Dashboard for verification and approval.\n\n` +
-                `Once reviewed and approved by the Ministry Admin, you will be able to sign in to your Farmer Portal using your mobile number and password.\n\n` +
-                `Thank you for joining KisanSetu!`
+                `Your mobile number has been verified via Twilio SMS OTP.\n\n` +
+                `Your application has been forwarded to the Ministry Administrator Dashboard for verification.\n\n` +
+                `You will receive an SMS when your account is APPROVED or REJECTED. Once approved, you can log in to your Farmer Portal using your mobile number and password.\n\n` +
+                `Thank you for registering on KisanSetu!`
             );
         }, 100);
     }

@@ -73,10 +73,10 @@ const api = {
     },
 
     // Auth
-    async sendOtp(mobile) {
+    async sendOtp(mobile, role = "user") {
         return this.request("/api/auth/send-otp", {
             method: "POST",
-            body: JSON.stringify({ mobile })
+            body: JSON.stringify({ mobile, role })
         });
     },
 
@@ -218,9 +218,17 @@ const api = {
         });
     },
 
-    // AI Forecast
-    async getAIForecast(commodity = "Ponni Raw Rice (Organic)", month = 9) {
-        return this.request(`/api/ai/forecast?commodity=${encodeURIComponent(commodity)}&month=${month}`);
+    // AI Forecast & Dynamic Gemini Price Recommendation
+    async getAIForecast(commodity = "Tomato", month = null) {
+        const m = month || (new Date().getMonth() + 1);
+        return this.request(`/api/ai/forecast?commodity=${encodeURIComponent(commodity)}&month=${m}`);
+    },
+
+    async suggestCropPrice(commodity) {
+        return this.request("/api/ai/suggest-price", {
+            method: "POST",
+            body: JSON.stringify({ commodity })
+        });
     },
 
     // Logistics Dispatch & Route Optimization

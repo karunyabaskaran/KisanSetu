@@ -8,6 +8,7 @@ Endpoints:
 import datetime
 from flask import Blueprint, request, jsonify
 from backend.db import get_db
+from backend.sms_service import send_farmer_approval_sms
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -279,6 +280,11 @@ def review_farmer_application(user_id):
         """, (new_status, now_iso, user_id))
         conn.commit()
         message = f"Farmer {user['name']} has been approved successfully. They can now log in to the KisanSetu portal."
+        # Trigger SMS Notification to Farmer
+        try:
+            send_farmer_approval_sms(user["mobile"], user["name"], approved=True)
+        except Exception:
+            pass
     else:
         new_status = "rejected"
         rejection_reason = reason or "Application review criteria not met by Ministry of Agriculture."
@@ -289,6 +295,11 @@ def review_farmer_application(user_id):
         """, (new_status, rejection_reason, user_id))
         conn.commit()
         message = f"Farmer {user['name']} application has been rejected."
+        # Trigger SMS Notification to Farmer
+        try:
+            send_farmer_approval_sms(user["mobile"], user["name"], approved=False, reason=rejection_reason)
+        except Exception:
+            pass
 
     cursor.execute("SELECT id, name, mobile, role, state, district, village, address, pincode, latitude, longitude, status, rejection_reason, approved_at, created_at FROM users WHERE id = ?", (user_id,))
     updated_user = dict(cursor.fetchone())

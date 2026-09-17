@@ -1593,18 +1593,24 @@
                         </div>
                     </div>
 
-                    <!-- Buyer OTP Section -->
+                    <!-- OTP Section for Farmer and Consumer -->
                     <div id="buyerOtpSection" class="form-group"
                         style="display: none; background: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-sm); padding: 12px;">
-                        <label data-i18n="lbl_mobile_otp">Mobile OTP Verification (Buyer) *</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="text" id="reg_otp" class="form-control" data-i18n-placeholder="ph_otp"
-                                placeholder="Enter 6-digit OTP">
-                            <button type="button" id="btnSendOtp" class="btn btn-sm btn-outline-primary"
-                                style="white-space: nowrap;" data-i18n="btn_send_otp">Send OTP</button>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label style="margin-bottom: 0; font-weight: 600;">Mobile OTP Verification *</label>
+                            <span id="otpVerifiedBadge" class="badge badge-success" style="display: none; font-size: 0.8rem;">Verified ✅</span>
                         </div>
-                        <small class="text-muted" data-i18n="sub_otp_notice">Click 'Send OTP' to simulate SMS dispatch
-                            with test OTP auto-fill.</small>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="reg_otp" class="form-control" maxlength="6"
+                                placeholder="Enter 6-digit OTP" autocomplete="off">
+                            <button type="button" id="btnSendOtp" class="btn btn-sm btn-outline-primary"
+                                style="white-space: nowrap;">Get OTP</button>
+                            <button type="button" id="btnVerifyOtp" class="btn btn-sm btn-success"
+                                style="white-space: nowrap;">Verify OTP</button>
+                        </div>
+                        <small id="otpStatusHint" class="text-muted" style="display: block; margin-top: 6px;">
+                            Click 'Get OTP' to receive an SMS code, then enter the 6 digits manually.
+                        </small>
                     </div>
 
                     <!-- Farmer GPS & Interactive Map Picker -->
@@ -1750,11 +1756,7 @@
                             <strong id="cartSummaryTransportCost">₹0.00</strong>
                         </div>
                         <div style="display: flex; justify-content: space-between;">
-                            <span class="text-muted">3. Eco Food-Grade Crating & Packaging:</span>
-                            <strong id="cartSummaryPackagingCost">₹0.00</strong>
-                        </div>
-                        <div style="display: flex; justify-content: space-between;">
-                            <span class="text-muted">4. Applicable GST & Mandi Cess (5%):</span>
+                            <span class="text-muted">3. Applicable GST & Mandi Cess (5%):</span>
                             <strong id="cartSummaryTaxCost">₹0.00</strong>
                         </div>
                         <hr style="margin: 6px 0; border: none; border-top: 1px solid #cbd5e1;">
@@ -1932,10 +1934,6 @@
                                 <div style="display: flex; justify-content: space-between;">
                                     <span>Consolidated Delivery Partner Fee</span>
                                     <span id="swiggyDeliveryFee" style="font-weight: 600; color: #1e293b;">₹0.00</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between;">
-                                    <span>Eco Food-Grade Packaging</span>
-                                    <span id="swiggyPackagingFee" style="font-weight: 600; color: #1e293b;">₹0.00</span>
                                 </div>
                                 <div style="display: flex; justify-content: space-between;">
                                     <span>Mandi Taxes & Govt Cess (5%)</span>
