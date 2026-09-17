@@ -69,6 +69,11 @@ def system_status():
         "logistics_hook": "backend/logistics_engine.py ready"
     })
 
+@app.route("/api/config/maps-key", methods=["GET"])
+def get_maps_key_route():
+    from backend.gemini_service import _get_api_key
+    return jsonify({"key": _get_api_key() or ""})
+
 @app.route("/api/firebase/status", methods=["GET"])
 def firebase_status_route():
     from backend.firebase_db import get_firebase_status

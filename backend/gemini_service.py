@@ -96,8 +96,9 @@ def _extract_json_safely(text: str) -> dict:
 
     # String extractions with multi-line and unclosed quote tolerance
     for key in ["demand_rating", "trend", "perishability", "market_insights", 
+                "category", "festival_name", "festival_notes", "festival_surge_percentage",
                 "dispatch_strategy", "perishable_cargo_priority", "recommended_departure_window",
-                "traffic_mitigation_tip", "fuel_efficiency_score"]:
+                "traffic_mitigation_tip", "fuel_efficiency_score", "relay_hub_advice"]:
         # Try closed quotes with DOTALL first
         pattern = rf'"{key}"\s*:\s*"([^"]+)"'
         m = re.search(pattern, cleaned, re.DOTALL)
@@ -168,41 +169,51 @@ def _call_gemini(prompt: str, system_instruction: str = None) -> dict:
 
     raise RuntimeError(f"All Gemini models exhausted. Last error: {last_error}")
 
-def get_gemini_crop_price_forecast(commodity: str, region: str = "India", month: int = None) -> dict:
+def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, India", month: int = None) -> dict:
     """
-    Queries Google Gemini AI to analyze market trends and calculate price guidance
-    for the selected crop (e.g., Tomato, Onion, Potato, Rice, Wheat, etc.).
+    Queries Google Gemini AI to analyze market trends and calculate festival-aware price guidance
+    for the selected crop (e.g., Carrot, Tomato, Onion, Potato, Rice, Wheat, etc.).
+    Incorporates recent festivals and upcoming festive demand surges in the farmer's state/region.
     """
     if not month:
         month = datetime.datetime.now().month
 
     system_instruction = (
-        "You are KisanSetu's AI Agricultural Market Intelligence Engine, specializing in Indian agricultural "
-        "commodity markets, Agmarknet/eNAM mandi arrivals, APMC price spreads, and government Minimum Support Prices (MSP). "
-        "Analyze real-world trends, seasonal harvest cycles, rainfall/supply patterns, and transport economics "
-        "to suggest fair, volatility-protected prices that maximize farmer profit while remaining competitive."
+        "You are KisanSetu's AI Agricultural Market & Festival Demand Intelligence Engine, specializing in Indian agricultural "
+        "commodity markets, APMC mandi arrivals, Agmarknet spot prices, and cultural festival demand dynamics. "
+        "Analyze regional harvest cycles and cultural festivals (e.g., Diwali, Pongal, Navratri, Dussehra, Onam, "
+        "Ganesh Chaturthi, Eid, temple feasts, weddings) in the farmer's state/region. "
+        "Detect the produce category (Vegetables, Fruits, Grains, Pulses, Spices) and suggest fair prices that "
+        "empower the farmer to capitalize on seasonal and festive demand surges."
     )
 
     prompt = f"""
-    Analyze the agricultural commodity: '{commodity}' in {region} for month {month} (1-12).
+    Analyze the agricultural commodity: '{commodity}' in state/region: '{region}' for month {month} (1-12).
+    Identify recent festivals and upcoming regional festivals in '{region}' that drive demand for '{commodity}'.
+    (Example: Carrots surge during Diwali/winter for Halwa; Rice surges for Pongal; Onions & Tomatoes surge for wedding/festival feasts).
+    
     Return a valid JSON object with exact keys:
     - "commodity": "{commodity}"
-    - "suggested_retail": (number, fair price in INR per kg for retail consumers, e.g. 42.0)
-    - "suggested_bulk": (number, wholesale price in INR per kg for bulk buyers >50kg, typically 15-25% lower, e.g. 32.0)
-    - "msp": (number, government MSP baseline or local mandi floor price in INR per kg, e.g. 20.0)
-    - "demand_index": (number from 1 to 100 representing market demand intensity, e.g. 84)
-    - "demand_rating": (string, e.g. 'High Demand' or 'Moderate Demand' or 'Surge Demand')
-    - "trend": (string, e.g. '+16% (Seasonal Supply Shift)' or '+20% (High Urban Uptake)')
+    - "category": (one of: "Vegetables", "Fruits", "Grains", "Pulses", "Spices")
+    - "suggested_retail": (number, fair price in INR per kg for retail consumers, factoring in festival demand, e.g. 48.0)
+    - "suggested_bulk": (number, wholesale price in INR per kg for bulk buyers >50kg, typically 15-25% lower, e.g. 38.0)
+    - "msp": (number, government MSP baseline or local mandi floor price in INR per kg, e.g. 22.0)
+    - "demand_index": (number from 1 to 100 representing market demand intensity, e.g. 88)
+    - "demand_rating": (string, e.g. 'High Festive Demand' or 'Moderate Demand' or 'Peak Festive Surge')
+    - "trend": (string, e.g. '+22% (Festive Surge & High Mandi Inflow)')
     - "perishability": (string, e.g. 'High' or 'Medium' or 'Low')
-    - "market_insights": (string, 2 sentences explaining recent mandi arrival trends, weather/supply factors, and why this suggested price protects the farmer against middlemen exploitation)
+    - "festival_name": (string, primary relevant recent or upcoming festival in {region}, e.g. 'Diwali & Navratri Season' or 'Pongal Harvest Festival')
+    - "festival_surge_percentage": (string, estimated festival demand surge, e.g. '+18% Festive Uptick')
+    - "festival_notes": (string, 1-2 sentences explaining how this specific festival influences culinary/household consumption of {commodity} in {region})
+    - "market_insights": (string, 2 sentences summarizing mandi arrival volumes, cold storage trends, and why this suggested price protects the farmer)
     """
 
     try:
         data = _call_gemini(prompt, system_instruction=system_instruction)
-        retail = float(data.get("suggested_retail", 40.0))
+        retail = float(data.get("suggested_retail", 42.0))
         bulk = float(data.get("suggested_bulk", round(retail * 0.82, 1)))
         msp = float(data.get("msp", round(retail * 0.65, 1))) if data.get("msp") is not None else round(retail * 0.65, 1)
-        demand_idx = float(data.get("demand_index", 78.0))
+        demand_idx = float(data.get("demand_index", 82.0))
 
         mid = round((retail + bulk) / 2.0, 1)
         slabs = [
@@ -211,20 +222,32 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "India", month:
             {"min_quantity": 50, "max_quantity": None, "price_per_kg": bulk}
         ]
 
+        cat = data.get("category", "Vegetables")
+        fest_name = data.get("festival_name", "Festive & Wedding Season")
+        fest_surge = data.get("festival_surge_percentage", "+15% Festive Demand")
+        fest_notes = data.get("festival_notes", f"Higher household consumption and culinary demand during regional festivities in {region}.")
+
         return {
             "success": True,
             "source": "Google Gemini AI",
             "commodity": commodity,
-            "forecast_period": f"Current Market ({datetime.datetime.now().strftime('%B %Y')})",
+            "category": cat,
+            "region": region,
+            "forecast_period": f"Current Market & Festivals ({datetime.datetime.now().strftime('%B %Y')})",
             "demand_index": round(demand_idx, 1),
-            "demand_rating": data.get("demand_rating", "High Demand" if demand_idx >= 75 else "Moderate Demand"),
-            "market_insights": data.get("market_insights", f"Gemini AI trend analysis indicates balanced mandi arrivals and strong demand for {commodity}."),
+            "demand_rating": data.get("demand_rating", "High Festive Demand" if demand_idx >= 75 else "Moderate Demand"),
+            "market_insights": data.get("market_insights", f"Gemini AI festival analysis confirms active regional demand for {commodity} in {region}."),
+            "festival_impact": {
+                "festival_name": fest_name,
+                "surge_percentage": fest_surge,
+                "festival_notes": fest_notes
+            },
             "perishability": data.get("perishability", "Medium"),
             "price_guidance": {
                 "government_msp": msp,
                 "recommended_retail_slab": f"₹{retail} / kg",
                 "recommended_bulk_slab": f"₹{bulk} / kg (>50 kg)",
-                "trend": data.get("trend", "+14% (Gemini AI Market Projection)")
+                "trend": data.get("trend", f"{fest_surge} (Gemini Festival Projection)")
             },
             "suggested_slabs": slabs
         }
@@ -234,14 +257,18 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "India", month:
 
 def get_gemini_route_dispatch_advisory(depot: dict, hubs: list, deliveries: list, corridor_name: str = "Agro Corridor") -> dict:
     """
-    Generates a high-level logistics optimization and dispatch advisory using Gemini AI
-    evaluating hub aggregation, perishable cargo priority, and urban drop sequencing.
+    Generates an intelligent logistics optimization and multi-hub dispatch advisory using Gemini AI:
+    1. Sequenced multi-hub aggregation (Farmer location -> Nearest Aggregation Hub).
+    2. Best route to on-corridor deliveries.
+    3. Relay Hub Dropoff: If any delivery is out-of-route, advises dropping consignment at an on-route relay hub.
     """
     system_instruction = (
-        "You are KisanSetu's AI Logistics & Supply Chain Strategist. You optimize cold-chain "
-        "and direct farm-to-consumer delivery fleets across Indian agro-industrial corridors. "
-        "Prioritize fresh perishable produce (e.g. tomatoes, shallots, greens) for early delivery, "
-        "reduce transit times, minimize carbon footprint, and suggest optimal dispatch departure hours."
+        "You are KisanSetu's AI Logistics & Supply Chain Strategist specializing in Indian agro-industrial corridors. "
+        "Optimize delivery routing with a multi-hub relay model: "
+        "First, farmer produce is aggregated at the nearest rural hub. "
+        "Second, on-corridor consumer deliveries are fulfilled directly. "
+        "Third, any destination located far outside the primary route is designated to be dropped at a "
+        "Transit Relay Hub along the route for last-mile secondary distribution, preventing transit backtracking."
     )
 
     cargo_summary = [h.get("cargo", "Produce") for h in hubs] + [d.get("cargo", "Order") for d in deliveries]
@@ -249,17 +276,18 @@ def get_gemini_route_dispatch_advisory(depot: dict, hubs: list, deliveries: list
     prompt = f"""
     Evaluate the following agricultural logistics corridor:
     - Corridor: {corridor_name}
-    - Central Depot: {depot.get('name', 'Depot')}
+    - Central Depot: {depot.get('name', 'Central Depot')}
     - Collection Hubs ({len(hubs)}): {[h.get('name') for h in hubs]}
     - Delivery Destinations ({len(deliveries)}): {[d.get('name') for d in deliveries]}
     - Cargo Types: {cargo_summary}
 
     Return a valid JSON object with exact keys:
-    - "dispatch_strategy": (string, 2 sentences explaining the route strategy and why pickup hubs are sequenced before delivery drops)
-    - "perishable_cargo_priority": (string, specific note identifying urgent items like tomatoes, milk or leafy greens that need cold-chain priority or early drops)
-    - "recommended_departure_window": (string, e.g. '04:30 AM - 06:00 AM (Pre-peak departure avoids urban congestion and thermal spoilage)')
-    - "traffic_mitigation_tip": (string, practical advice for the driver avoiding peak corridors)
-    - "fuel_efficiency_score": (string, e.g. '98.5% Optimal Efficiency')
+    - "dispatch_strategy": (string, 2 sentences explaining the route strategy starting from farmer nearest hub aggregation to doorstep deliveries)
+    - "perishable_cargo_priority": (string, specific note identifying urgent items like carrots, tomatoes or greens requiring early morning transit)
+    - "relay_hub_advice": (string, guidance for any out-of-route drops: identify that off-corridor orders should be handed over to intermediate relay hubs along the route)
+    - "recommended_departure_window": (string, e.g. '04:30 AM - 06:00 AM (Early morning departure minimizes thermal stress and urban gridlock)')
+    - "traffic_mitigation_tip": (string, practical driver advice for Google Maps navigation avoiding bottlenecks)
+    - "fuel_efficiency_score": (string, e.g. '98.5% Optimal Green Corridor')
     """
 
     try:
@@ -267,10 +295,11 @@ def get_gemini_route_dispatch_advisory(depot: dict, hubs: list, deliveries: list
         return {
             "success": True,
             "powered_by": "Google Gemini AI",
-            "dispatch_strategy": advisory.get("dispatch_strategy", "Sequenced multi-hub aggregation followed by clustered urban customer deliveries."),
+            "dispatch_strategy": advisory.get("dispatch_strategy", "Sequenced aggregation at the nearest regional hub followed by direct corridor deliveries and relay hub transfers."),
             "perishable_cargo_priority": advisory.get("perishable_cargo_priority", "High priority for fresh perishable farm crops to preserve farm gate freshness."),
-            "recommended_departure_window": advisory.get("recommended_departure_window", "05:00 AM - 06:30 AM (Pre-peak corridor)"),
-            "traffic_mitigation_tip": advisory.get("traffic_mitigation_tip", "Bypass dense urban ring-roads during peak morning hours using peripheral bypass routes."),
+            "relay_hub_advice": advisory.get("relay_hub_advice", "Out-of-corridor deliveries will be dropped at intermediate transit hubs along the route for local last-mile relay distribution."),
+            "recommended_departure_window": advisory.get("recommended_departure_window", "04:30 AM - 06:00 AM (Pre-peak corridor)"),
+            "traffic_mitigation_tip": advisory.get("traffic_mitigation_tip", "Follow Google Maps Live Traffic navigation to bypass urban signals via peripheral ring roads."),
             "fuel_efficiency_score": advisory.get("fuel_efficiency_score", "98.4% Efficiency")
         }
     except Exception as err:
@@ -278,9 +307,11 @@ def get_gemini_route_dispatch_advisory(depot: dict, hubs: list, deliveries: list
         return {
             "success": False,
             "powered_by": "KisanSetu Heuristic Engine",
-            "dispatch_strategy": "Direct precedence multi-hub aggregation into clustered urban deliveries.",
+            "dispatch_strategy": "Direct precedence multi-hub aggregation into clustered urban deliveries with relay hub dropoffs.",
             "perishable_cargo_priority": "Perishable produce prioritized for immediate delivery.",
-            "recommended_departure_window": "05:30 AM - 06:30 AM",
-            "traffic_mitigation_tip": "Maintain steady corridor transit to optimize fuel consumption.",
+            "relay_hub_advice": "Out-of-corridor orders are transferred to intermediate relay hubs on the delivery route.",
+            "recommended_departure_window": "05:00 AM - 06:30 AM",
+            "traffic_mitigation_tip": "Maintain steady corridor transit using Google Maps to optimize fuel consumption.",
             "fuel_efficiency_score": "96.5% Standard Efficiency"
         }
+

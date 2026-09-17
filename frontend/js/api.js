@@ -224,10 +224,15 @@ const api = {
         return this.request(`/api/ai/forecast?commodity=${encodeURIComponent(commodity)}&month=${m}`);
     },
 
-    async suggestCropPrice(commodity) {
+    async suggestCropPrice(commodity, region = null, month = null) {
+        const userState = (this.currentUser && (this.currentUser.state || this.currentUser.location)) || "Tamil Nadu, India";
         return this.request("/api/ai/suggest-price", {
             method: "POST",
-            body: JSON.stringify({ commodity })
+            body: JSON.stringify({
+                commodity,
+                region: region || userState,
+                month: month || (new Date().getMonth() + 1)
+            })
         });
     },
 
@@ -239,10 +244,10 @@ const api = {
         });
     },
 
-    async getOptimizedRoute(corridor = "chennai_corridor") {
+    async getOptimizedRoute(corridor = "chennai_corridor", farmerLocation = null) {
         return this.request("/api/logistics/optimize-route", {
             method: "POST",
-            body: JSON.stringify({ corridor })
+            body: JSON.stringify({ corridor, farmer_location: farmerLocation })
         });
     },
 

@@ -145,6 +145,155 @@ const FarmerController = {
         }
     },
 
+    // Crop Category detection mapping
+    detectCropCategory(cropName) {
+        if (!cropName || typeof cropName !== "string") return null;
+        const c = cropName.toLowerCase().trim();
+
+        const vegKeywords = [
+            "tomato", "onion", "potato", "carrot", "cabbage", "cauliflower", "brinjal", "eggplant",
+            "ladies finger", "okra", "capsicum", "bell pepper", "chilli", "chili", "cucumber",
+            "ginger", "garlic", "radish", "beetroot", "spinach", "drumstick", "pumpkin", "gourd",
+            "bottle gourd", "bitter gourd", "ridge gourd", "snake gourd", "beans", "french bean",
+            "peas", "green peas", "mushroom", "broccoli", "zucchini", "lettuce", "coriander",
+            "mint", "pudina", "kothmir", "curry leaves", "methi", "fenugreek leaf"
+        ];
+        const fruitKeywords = [
+            "apple", "banana", "mango", "orange", "grape", "papaya", "guava", "pineapple",
+            "watermelon", "muskmelon", "melon", "pomegranate", "lemon", "lime", "sapota",
+            "chiku", "chikoo", "custard apple", "jackfruit", "strawberry", "coconut", "tender coconut",
+            "fig", "amla", "gooseberry", "plum", "peach", "pear", "dragon fruit"
+        ];
+        const grainKeywords = [
+            "rice", "paddy", "ponni", "basmati", "sona masoori", "wheat", "atta", "corn",
+            "maize", "ragi", "millet", "pearl millet", "bajra", "jowar", "sorghum", "barley",
+            "oats", "foxtail", "finger millet", "little millet", "kodo"
+        ];
+        const pulseKeywords = [
+            "dal", "daal", "toor", "tur", "urad", "moong", "chana", "chickpea", "gram",
+            "bengal gram", "black gram", "green gram", "lentil", "red lentil", "masoor",
+            "pigeon pea", "rajma", "kidney bean", "soya", "soybean", "cowpea", "karamani", "horse gram"
+        ];
+        const spiceKeywords = [
+            "turmeric", "cardamom", "cardamon", "pepper", "black pepper", "clove", "cinnamon",
+            "cumin", "jeera", "mustard", "fenugreek seed", "aniseed", "fennel", "saunf",
+            "coriander seed", "dhania", "saffron", "nutmeg", "mace", "bay leaf", "asafoetida", "hing"
+        ];
+
+        for (const k of vegKeywords) {
+            if (c.includes(k)) return "Vegetables";
+        }
+        for (const k of fruitKeywords) {
+            if (c.includes(k)) return "Fruits";
+        }
+        for (const k of grainKeywords) {
+            if (c.includes(k)) return "Grains";
+        }
+        for (const k of pulseKeywords) {
+            if (c.includes(k)) return "Pulses";
+        }
+        for (const k of spiceKeywords) {
+            if (c.includes(k)) return "Spices";
+        }
+        return null;
+    },
+
+    _cropInputTimer: null,
+
+    // Triggered live whenever farmer types in "+ Add New Produce" Product / Crop Name
+    onCropNameInput(val) {
+        const cropName = (val || "").trim();
+        if (!cropName) {
+            const surgeEl = document.getElementById("farmerFestivalSurgeAlert");
+            if (surgeEl) surgeEl.style.display = "none";
+            return;
+        }
+
+        // 1. Instant Category Auto-Detection & Selection
+        const detectedCat = this.detectCropCategory(cropName);
+        const catSelect = document.getElementById("prod_category");
+        if (detectedCat && catSelect) {
+            catSelect.value = detectedCat;
+        }
+
+        // 2. Debounced Gemini AI Regional Festival & Fair Price calculation
+        if (this._cropInputTimer) clearTimeout(this._cropInputTimer);
+        if (cropName.length >= 3) {
+            this._cropInputTimer = setTimeout(() => {
+                this.fetchFestivalPriceForCrop(cropName);
+            }, 600);
+        }
+    },
+
+    async fetchFestivalPriceForCrop(cropName) {
+        if (!cropName || cropName.trim().length < 2) return;
+        const cleanName = cropName.trim();
+        const surgeAlert = document.getElementById("farmerFestivalSurgeAlert");
+        const surgeText = document.getElementById("farmerFestivalSurgeText");
+        const surgeBadge = document.getElementById("farmerFestivalSurgeBadge");
+
+        try {
+            const userState = (window.api && window.api.currentUser && (window.api.currentUser.state || window.api.currentUser.location)) || "Tamil Nadu, India";
+            const res = await api.suggestCropPrice(cleanName, userState);
+            if (res && res.success) {
+                this.latestAIForecast = res;
+
+                // Sync category if Gemini resolved it
+                if (res.category) {
+                    const catSelect = document.getElementById("prod_category");
+                    if (catSelect) {
+                        const optExists = Array.from(catSelect.options).some(o => o.value.toLowerCase() === res.category.toLowerCase());
+                        if (optExists) catSelect.value = res.category;
+                    }
+                }
+
+                // Apply AI calculated slabs
+                this.applyAIPricesToSlabs();
+
+                // Display Festival Surge if applicable
+                const fest = res.festival_impact;
+                if (fest && fest.festival_name && fest.festival_name !== "Standard Market Cycle") {
+                    if (surgeAlert) {
+                        surgeAlert.style.display = "flex";
+                        if (surgeText) {
+                            surgeText.innerHTML = `<strong>${fest.festival_name} Surge:</strong> ${fest.notes || 'High seasonal festival demand in ' + userState}`;
+                        }
+                        if (surgeBadge) {
+                            surgeBadge.innerText = `+${fest.surge_percentage || 15}% Festival Surge`;
+                            surgeBadge.style.background = "#f59e0b";
+                        }
+                    }
+                } else if (res.price_guidance && res.price_guidance.festival_impact && res.price_guidance.festival_impact.is_festival_season) {
+                    const fi = res.price_guidance.festival_impact;
+                    if (surgeAlert) {
+                        surgeAlert.style.display = "flex";
+                        if (surgeText) {
+                            surgeText.innerHTML = `<strong>${fi.festival_name || 'Upcoming Festival'} Demand:</strong> ${fi.notes || 'Expected price appreciation.'}`;
+                        }
+                        if (surgeBadge) {
+                            surgeBadge.innerText = `+${fi.surge_percentage || 15}% Surge`;
+                            surgeBadge.style.background = "#f59e0b";
+                        }
+                    }
+                } else {
+                    // Show standard Gemini fair pricing guidance
+                    if (surgeAlert) {
+                        surgeAlert.style.display = "flex";
+                        if (surgeText) {
+                            surgeText.innerHTML = `<strong>Gemini Fair Price:</strong> ${res.price_guidance.recommended_retail_slab} retail / ${res.price_guidance.recommended_bulk_slab} wholesale for ${cleanName}.`;
+                        }
+                        if (surgeBadge) {
+                            surgeBadge.innerText = `AI Optimized`;
+                            surgeBadge.style.background = "#10b981";
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn("fetchFestivalPriceForCrop background error:", err);
+        }
+    },
+
     // --- Instant 1-Click AI Price Suggestion for Farmer Form ---
     async suggestPriceForCurrentCrop() {
         const prodNameInput = document.getElementById("prod_name");
@@ -167,33 +316,18 @@ const FarmerController = {
         }
 
         try {
-            if (window.showToast) window.showToast(`Asking Google Gemini AI for recent mandi trends on '${cropName}'...`, "info");
-            const res = await api.suggestCropPrice(cropName);
-            if (res && res.success) {
-                this.latestAIForecast = res;
-                this.applyAIPricesToSlabs();
-                
-                // Update forecast card display as well
-                this.loadFarmerAIForecast(cropName);
+            const userState = (window.api && window.api.currentUser && (window.api.currentUser.state || window.api.currentUser.location)) || "Tamil Nadu, India";
+            if (window.showToast) window.showToast(`Asking Google Gemini AI for recent mandi trends & festivals on '${cropName}' in ${userState}...`, "info");
+            
+            await this.fetchFestivalPriceForCrop(cropName);
+            
+            // Also update forecast card display
+            this.loadFarmerAIForecast(cropName);
 
-                // Auto-detect category
-                const catSelect = document.getElementById("prod_category");
-                if (catSelect) {
-                    const cLower = cropName.toLowerCase();
-                    if (cLower.includes("tomato") || cLower.includes("onion") || cLower.includes("potato") || cLower.includes("chilli") || cLower.includes("cabbage")) {
-                        catSelect.value = "Vegetables";
-                    } else if (cLower.includes("rice") || cLower.includes("wheat") || cLower.includes("corn") || cLower.includes("paddy")) {
-                        catSelect.value = "Grains";
-                    } else if (cLower.includes("grape") || cLower.includes("banana") || cLower.includes("mango") || cLower.includes("apple")) {
-                        catSelect.value = "Fruits";
-                    }
-                }
-
+            if (this.latestAIForecast && this.latestAIForecast.price_guidance) {
                 if (window.showToast) {
-                    window.showToast(`✨ Gemini AI suggested: ${res.price_guidance.recommended_retail_slab} retail, ${res.price_guidance.recommended_bulk_slab} wholesale for ${cropName}!`, "success");
+                    window.showToast(`✨ Gemini AI suggested: ${this.latestAIForecast.price_guidance.recommended_retail_slab} retail, ${this.latestAIForecast.price_guidance.recommended_bulk_slab} wholesale for ${cropName}!`, "success");
                 }
-            } else {
-                throw new Error("Could not calculate AI price");
             }
         } catch (err) {
             console.error("AI Price Suggestion Error:", err);
