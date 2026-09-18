@@ -644,6 +644,9 @@
             <button class="subnav-btn buyer-tab-btn active" data-tab="marketplace"
                 data-i18n="nav_buyer_marketplace">Marketplace</button>
             <button class="subnav-btn buyer-tab-btn" data-tab="orders" data-i18n="nav_buyer_orders">My Orders</button>
+            <button class="subnav-btn buyer-tab-btn" data-tab="chatbot" id="navBuyerAIChatbot">
+                <span>🤖</span> <span data-i18n="nav_buyer_chatbot">AI Assistant</span>
+            </button>
             <button class="subnav-btn buyer-tab-btn" data-tab="support" data-i18n="nav_buyer_support">Customer Support</button>
             <button class="subnav-btn buyer-tab-btn" data-tab="profile" data-i18n="nav_buyer_profile">My Profile</button>
             <button type="button" class="subnav-btn buyer-cart-btn" id="btnOpenCart" onclick="BuyerController.openCartModal()" style="margin-left: auto; background: #15803d; color: #ffffff; border-radius: 20px; padding: 6px 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; border: none; cursor: pointer; box-shadow: 0 2px 6px rgba(22, 163, 74, 0.3);">
@@ -729,7 +732,77 @@
             </div>
         </div>
 
-        <!-- 2.3 Buyer Support Tab -->
+        <!-- 2.3 Buyer AI Chatbot Tab -->
+        <div class="buyer-tab-panel" data-tab-panel="chatbot" id="buyerChatbotPanel">
+            <div class="chatbot-main-card">
+                <!-- Chatbot Header -->
+                <div class="chatbot-header">
+                    <div class="chatbot-header-left">
+                        <div class="chatbot-bot-avatar-large">🤖</div>
+                        <div>
+                            <div class="chatbot-title-row">
+                                <h3 class="chatbot-title" data-i18n="chatbot_title">KisanMitra AI Assistant</h3>
+                                <span class="chatbot-gemini-badge">
+                                    <span class="live-dot-pulse"></span>
+                                    <span>Google Gemini Powered</span>
+                                </span>
+                            </div>
+                            <p class="chatbot-subtitle" data-i18n="chatbot_subtitle">
+                                Ask about marketplace produce, live prices, bulk volume discounts, farmer locations, or track your farm-direct orders.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="chatbot-header-actions">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnChatClear" title="Clear Chat History">
+                            🔄 <span data-i18n="btn_clear_chat">Clear Chat</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quick Suggestion Chips Carousel -->
+                <div class="chat-chips-bar">
+                    <span class="chat-chips-label">💡 Suggested Questions:</span>
+                    <div class="chat-chips-scroll">
+                        <button type="button" class="chat-chip" onclick="ConsumerChatbot.quickAsk('Where is my latest order?')">
+                            📦 Where is my latest order?
+                        </button>
+                        <button type="button" class="chat-chip" onclick="ConsumerChatbot.quickAsk('What fresh vegetables are available today?')">
+                            🍅 What fresh vegetables are available today?
+                        </button>
+                        <button type="button" class="chat-chip" onclick="ConsumerChatbot.quickAsk('What are the bulk slab discounts on rice and grains?')">
+                            💰 Bulk slab discounts
+                        </button>
+                        <button type="button" class="chat-chip" onclick="ConsumerChatbot.quickAsk('Which crops are in season in Tamil Nadu right now?')">
+                            🌾 Seasonal crops in Tamil Nadu
+                        </button>
+                        <button type="button" class="chat-chip" onclick="ConsumerChatbot.quickAsk('How does direct farm delivery work on KisanSetu?')">
+                            ℹ️ How direct delivery works
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Scroll Container -->
+                <div id="buyerChatMessages" class="chat-messages-container">
+                    <!-- Populated dynamically by ConsumerChatbot -->
+                </div>
+
+                <!-- Chat Input Action Bar -->
+                <div class="chat-input-bar">
+                    <button type="button" id="btnChatMic" class="chat-tool-btn" title="Speak to Assistant (Voice Input)">
+                        🎙️
+                    </button>
+                    <input type="text" id="buyerChatInput" class="chat-input-field" 
+                        placeholder="Ask about crops, prices, bulk slabs, or track orders (e.g., 'Where is my order?')..."
+                        autocomplete="off">
+                    <button type="button" id="btnChatSend" class="chat-send-btn" title="Send Query">
+                        <span>Send</span>
+                        <span>✈️</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2.4 Buyer Support Tab -->
         <div class="buyer-tab-panel" data-tab-panel="support">
             <div class="support-split-layout">
                 <div class="content-card">
@@ -820,6 +893,13 @@
                 </form>
             </div>
         </div>
+
+        <!-- Floating AI Assistant Trigger -->
+        <button type="button" id="buyerFloatingAIChatbotBtn" class="buyer-floating-ai-btn" onclick="ConsumerChatbot.openFromFloating()" title="Ask KisanMitra AI">
+            <span class="floating-ai-icon">🤖</span>
+            <span class="floating-ai-label" data-i18n="floating_ai_label">Ask AI Assistant</span>
+            <span class="floating-ai-pulse"></span>
+        </button>
     </main>
 
     <!-- ====================================================================
@@ -2534,6 +2614,7 @@
     <script src="js/map.js?v=3.1"></script>
     <script src="js/logistics_hook.js?v=3.1"></script>
     <script src="js/farmer.js?v=3.1"></script>
+    <script src="js/consumer_chatbot.js?v=3.1"></script>
     <script src="js/buyer.js?v=3.1"></script>
     <script src="js/admin.js?v=3.1"></script>
     <script src="js/app.js?v=3.1"></script>

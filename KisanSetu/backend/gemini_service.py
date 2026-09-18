@@ -393,3 +393,122 @@ def get_gemini_route_dispatch_advisory(depot: dict, hubs: list, deliveries: list
             "fuel_efficiency_score": "96.5% Standard Efficiency"
         }
 
+def get_gemini_consumer_chat_reply(
+    message: str,
+    user_context: dict = None,
+    marketplace_items: list = None,
+    order_history: list = None,
+    conversation_history: list = None
+) -> dict:
+    """
+    Generates an intelligent, grounded conversational response for KisanSetu consumers.
+    Can answer questions about:
+    1. Marketplace produce: availability, freshness, categories, slab pricing, farmer source regions.
+    2. Order details: order status, live tracking checkpoints, items, amounts, inspection windows, returns.
+    3. Agricultural recommendations: seasonal crops, nutrition, fair price comparisons.
+    """
+    user_context = user_context or {}
+    marketplace_items = (marketplace_items or [])[:20]  # Ground with top active items
+    order_history = (order_history or [])[:10]         # Ground with recent orders
+    conv_history = (conversation_history or [])[-6:]    # Last 3-6 turns
+
+    # Prepare compact marketplace inventory snapshot
+    market_summary = []
+    for p in marketplace_items:
+        price_info = ""
+        slabs = p.get("slabs", [])
+        if slabs:
+            price_info = f"₹{slabs[0].get('price_per_kg', 0)}/kg"
+            if len(slabs) > 1:
+                price_info += f" (Bulk slab: ₹{slabs[-1].get('price_per_kg', 0)}/kg for >{slabs[-1].get('min_quantity', 50)}kg)"
+        else:
+            price_info = f"₹{p.get('price_per_kg', 35)}/kg"
+
+        market_summary.append({
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "category": p.get("category"),
+            "variety": p.get("variety"),
+            "grade": p.get("grade"),
+            "price": price_info,
+            "stock_kg": p.get("available_quantity"),
+            "farmer": p.get("farmer_name"),
+            "location": f"{p.get('farmer_district', '')}, {p.get('farmer_state', '')}".strip(", ")
+        })
+
+    # Prepare compact order history snapshot
+    orders_summary = []
+    for o in order_history:
+        orders_summary.append({
+            "order_number": o.get("order_number"),
+            "product": o.get("product_name"),
+            "quantity_kg": o.get("quantity"),
+            "total_amount": f"₹{o.get('total_amount')}",
+            "status": o.get("status"),
+            "date": str(o.get("created_at", ""))[:10],
+            "payment_status": o.get("payment_status", "pending"),
+            "delivery_location": o.get("delivery_location", ""),
+            "inspection_active": o.get("inspection_active", False)
+        })
+
+    system_instruction = (
+        "You are KisanMitra AI, the official consumer assistant on the KisanSetu Agricultural Platform. "
+        "KisanSetu connects consumers and bulk buyers directly with Indian farmers without exploitative middlemen. "
+        "You provide warm, polite, highly helpful, and accurate answers in markdown format. "
+        "Always rely strictly on the provided real-time 'MARKETPLACE_INVENTORY' and 'CONSUMER_ORDERS' when answering specific queries. "
+        "When asked about orders, check the customer's orders and clearly report the order number, item, status, and total. "
+        "When asked about available produce or prices, recommend matching items from the marketplace with farmer locations and prices. "
+        "Keep answers concise, clear, and well-structured with bullet points where appropriate. "
+        "Language instruction: Respond in the language specified in PREFERRED_LANGUAGE (e.g. English for 'en', Tamil for 'ta', Hindi for 'hi'), or in the language the user wrote in."
+    )
+
+    lang_code = user_context.get("language", "en")
+    lang_name = "English" if lang_code == "en" else "Tamil" if lang_code == "ta" else "Hindi" if lang_code == "hi" else "English"
+
+    prompt = f"""
+    PREFERRED_LANGUAGE: {lang_name} ({lang_code})
+
+    CURRENT CONSUMER:
+    - Name: {user_context.get('name', 'Valued Customer')}
+    - Delivery Location: {user_context.get('location', user_context.get('address', 'Chennai, Tamil Nadu'))}
+
+    CONSUMER ORDERS (Recent):
+    {json.dumps(orders_summary, indent=2, ensure_ascii=False) if orders_summary else "No active or past orders found for this consumer account."}
+
+    LIVE MARKETPLACE INVENTORY:
+    {json.dumps(market_summary, indent=2, ensure_ascii=False) if market_summary else "No live produce listings currently in the marketplace catalog."}
+
+    RECENT CHAT TURNS:
+    {json.dumps(conv_history, ensure_ascii=False)}
+
+    NEW USER MESSAGE:
+    "{message}"
+
+    Return a valid JSON object with the following exact keys:
+    - "reply": (string, friendly conversational response formatted with markdown bold, lists, and emojis)
+    - "intent": (string, one of ["order_query", "marketplace_search", "pricing_query", "recommendation", "greeting", "general"])
+    - "referenced_orders": (array of strings, e.g. ["ORD-1001"] if specific orders are mentioned in your reply, or empty array [])
+    - "referenced_products": (array of integers or strings, product IDs or produce names mentioned, or empty array [])
+    - "suggested_actions": (array of action objects with "type" and "label", e.g. [{{"type": "view_order", "label": "View Order #ORD-1001", "order_number": "ORD-1001"}}, {{"type": "add_to_cart", "label": "Add Tomato to Cart", "product_id": 1, "product_name": "Tomato"}}] or empty array [])
+    """
+
+    try:
+        res = _call_gemini(prompt, system_instruction=system_instruction)
+        return {
+            "success": True,
+            "source": "Google Gemini AI",
+            "reply": res.get("reply", "I am here to help you browse KisanSetu farm produce and track your direct farmer orders."),
+            "intent": res.get("intent", "general"),
+            "referenced_orders": res.get("referenced_orders", []),
+            "referenced_products": res.get("referenced_products", []),
+            "suggested_actions": res.get("suggested_actions", [])
+        }
+    except Exception as err:
+        print(f"[GeminiService] Consumer chat error: {err}")
+        return {
+            "success": False,
+            "error": str(err),
+            "source": "fallback_needed"
+        }
+
+

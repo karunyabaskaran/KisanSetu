@@ -131,6 +131,12 @@ function setRolePortal(role) {
         showLogisticsSubTab(activeLogisticsSubTab);
     }
 
+    // Update floating AI button for buyer
+    const floatingAiBtn = document.getElementById("buyerFloatingAIChatbotBtn");
+    if (floatingAiBtn) {
+        floatingAiBtn.style.display = (role === "buyer" && activeBuyerTab !== "chatbot") ? "flex" : "none";
+    }
+
     updateUserDisplay();
 }
 
@@ -140,6 +146,10 @@ function showPortalSelectView() {
     const selectSection = document.getElementById("section_portal_select");
     if (selectSection) {
         selectSection.classList.add("active");
+    }
+    const floatingAiBtn = document.getElementById("buyerFloatingAIChatbotBtn");
+    if (floatingAiBtn) {
+        floatingAiBtn.style.display = "none";
     }
     const badge = document.getElementById("activePortalBadge");
     if (badge) {
@@ -236,10 +246,19 @@ function showBuyerTab(tabName) {
         panel.classList.toggle("active", panel.getAttribute("data-tab-panel") === tabName);
     });
 
+    const floatingBtn = document.getElementById("buyerFloatingAIChatbotBtn");
+    if (floatingBtn) {
+        floatingBtn.style.display = tabName === "chatbot" ? "none" : "flex";
+    }
+
     if (tabName === "marketplace") {
         BuyerController.loadMarketplace();
     } else if (tabName === "orders") {
         BuyerController.loadMyOrders();
+    } else if (tabName === "chatbot") {
+        if (window.ConsumerChatbot && typeof window.ConsumerChatbot.onTabActivated === "function") {
+            window.ConsumerChatbot.onTabActivated();
+        }
     } else if (tabName === "support") {
         BuyerController.loadTickets();
     }

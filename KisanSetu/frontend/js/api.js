@@ -246,6 +246,23 @@ const api = {
         });
     },
 
+    // Consumer AI Chatbot (Gemini AI + Live Grounding)
+    async sendConsumerChatMessage(message, conversationHistory = []) {
+        const u = this.currentUser || {};
+        const lang = localStorage.getItem("kisansetu_lang") || "en";
+        return this.request("/api/ai/consumer-chat", {
+            method: "POST",
+            body: JSON.stringify({
+                message,
+                user_id: u.id || null,
+                buyer_name: u.name || null,
+                buyer_mobile: u.mobile || null,
+                language: lang,
+                conversation_history: conversationHistory
+            })
+        });
+    },
+
     // Logistics Dispatch & Route Optimization
     async getLogisticsEstimate(payload) {
         return this.request("/api/logistics/estimate-dispatch", {

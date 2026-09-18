@@ -270,3 +270,315 @@ def suggest_price():
     res = _heuristic_forecast(commodity, month_int, region=region)
     return jsonify(res)
 
+def _heuristic_consumer_chat(message: str, user_context: dict, marketplace_items: list, order_history: list) -> dict:
+    """
+    Intelligent heuristic & rule-based conversational assistant when Gemini is offline.
+    Reliably handles order tracking, marketplace queries, pricing, and recommendations.
+    """
+    import re
+    msg_lower = message.lower().strip()
+    user_name = (user_context or {}).get("name", "there")
+
+    # 1. Check for specific order number in message (e.g., ORD-1001, #1001, ORD123)
+    order_num_match = re.search(r'(?:#|ord-?|order\s*(?:#|no\.?|number)?\s*)(\d{3,6})', msg_lower)
+    target_order_num = None
+    if order_num_match:
+        extracted = order_num_match.group(1)
+        target_order_num = f"ORD-{extracted}" if not extracted.startswith("ord-") else extracted.upper()
+
+    matched_order = None
+    if target_order_num and order_history:
+        for o in order_history:
+            if str(o.get("order_number", "")).upper() == target_order_num or str(o.get("id")) == extracted:
+                matched_order = o
+                break
+
+    # 2. Handle Order Queries
+    if "order" in msg_lower or "track" in msg_lower or "delivery" in msg_lower or "status" in msg_lower or matched_order or "shipped" in msg_lower or "invoice" in msg_lower:
+        if matched_order:
+            status_map = {
+                "ordered": "📋 Placed & Waiting for Farmer Aggregation",
+                "pickup_complete": "📦 Collected by Logistics Carrier",
+                "shipped": "🚚 In Transit via Farm Route Corridor",
+                "delivered": "⏳ Delivered (Active 7-Day Quality Inspection)",
+                "completed": "✅ Verified & Finalized",
+                "returned": "🛑 Returned"
+            }
+            display_status = status_map.get(matched_order.get("status"), matched_order.get("status", "Processing"))
+            reply = (
+                f"### 📦 Order Details: #{matched_order.get('order_number')}\n\n"
+                f"- **Product:** {matched_order.get('product_name')} ({matched_order.get('quantity')} kg)\n"
+                f"- **Status:** {display_status}\n"
+                f"- **Total Amount:** ₹{matched_order.get('total_amount')}\n"
+                f"- **Payment Status:** {(matched_order.get('payment_status') or 'Paid').upper()}\n"
+                f"- **Delivery Destination:** {matched_order.get('delivery_location', 'Your registered address')}\n"
+                f"- **Date Ordered:** {str(matched_order.get('created_at', 'Today'))[:10]}\n\n"
+                f"You can click the button below to view the official Commercial Tax Invoice and live checkpoint tracking."
+            )
+            return {
+                "success": True,
+                "source": "KisanSetu Intelligent Assistant",
+                "reply": reply,
+                "intent": "order_query",
+                "referenced_orders": [matched_order.get("order_number")],
+                "referenced_products": [matched_order.get("product_name")],
+                "suggested_actions": [
+                    {"type": "view_order", "label": f"📄 View Invoice #{matched_order.get('order_number')}", "order_number": matched_order.get("order_number")},
+                    {"type": "navigate_tab", "label": "📦 View All My Orders", "tab": "orders"}
+                ]
+            }
+        elif order_history and ("latest" in msg_lower or "my order" in msg_lower or "recent" in msg_lower or "where" in msg_lower):
+            latest = order_history[0]
+            status_map = {
+                "ordered": "📋 Confirmed & Being Aggregated",
+                "pickup_complete": "📦 Dispatched from Farm Depot",
+                "shipped": "🚚 In Transit on Delivery Route",
+                "delivered": "⏳ Delivered (Inspection Active)",
+                "completed": "✅ Completed & Verified",
+                "returned": "🛑 Return Processed"
+            }
+            display_status = status_map.get(latest.get("status"), latest.get("status", "Processing"))
+            reply = (
+                f"### 📦 Your Most Recent Order: #{latest.get('order_number')}\n\n"
+                f"- **Produce:** {latest.get('product_name')} ({latest.get('quantity')} kg)\n"
+                f"- **Status:** {display_status}\n"
+                f"- **Total Payable:** ₹{latest.get('total_amount')}\n"
+                f"- **Delivery Address:** {latest.get('delivery_location', 'Chennai, Tamil Nadu')}\n"
+                f"- **Order Date:** {str(latest.get('created_at', 'Today'))[:10]}\n\n"
+                f"Would you like to review the tax invoice or browse additional farm-fresh crops?"
+            )
+            return {
+                "success": True,
+                "source": "KisanSetu Intelligent Assistant",
+                "reply": reply,
+                "intent": "order_query",
+                "referenced_orders": [latest.get("order_number")],
+                "referenced_products": [latest.get("product_name")],
+                "suggested_actions": [
+                    {"type": "view_order", "label": f"📄 View Invoice #{latest.get('order_number')}", "order_number": latest.get("order_number")},
+                    {"type": "navigate_tab", "label": "🛒 Browse Marketplace", "tab": "marketplace"}
+                ]
+            }
+        elif not order_history:
+            reply = (
+                "You don't have any active orders under this account yet.\n\n"
+                "Browse our **Pan-India Marketplace** to purchase fresh produce directly from farmers with verified quality grades and 15-25% lower prices than retail stores!"
+            )
+            return {
+                "success": True,
+                "source": "KisanSetu Intelligent Assistant",
+                "reply": reply,
+                "intent": "order_query",
+                "referenced_orders": [],
+                "referenced_products": [],
+                "suggested_actions": [
+                    {"type": "navigate_tab", "label": "🛒 Explore Marketplace", "tab": "marketplace"}
+                ]
+            }
+
+    # 3. Handle Marketplace & Produce Queries
+    crop_matches = []
+    if marketplace_items:
+        for p in marketplace_items:
+            p_name = (p.get("name") or "").lower()
+            p_cat = (p.get("category") or "").lower()
+            if p_name in msg_lower or p_cat in msg_lower or any(w in msg_lower for w in p_name.split()):
+                crop_matches.append(p)
+
+    if crop_matches or any(w in msg_lower for w in ["produce", "crop", "vegetable", "fruit", "grain", "pulse", "spice", "buy", "available", "price", "rate", "cost", "marketplace"]):
+        items_to_show = crop_matches[:4] if crop_matches else marketplace_items[:4]
+        
+        reply_lines = ["### 🌾 Available Farm-Fresh Produce in Marketplace:\n"]
+        actions = []
+
+        for p in items_to_show:
+            slabs = p.get("slabs", [])
+            price_str = f"₹{slabs[0]['price_per_kg']}/kg" if slabs else f"₹{p.get('price_per_kg', 35)}/kg"
+            farmer_loc = f"{p.get('farmer_district', '')}, {p.get('farmer_state', '')}".strip(", ")
+            stock = f"{p.get('available_quantity', 100)} kg"
+            
+            reply_lines.append(f"- **{p.get('name')}** ({p.get('grade', 'Grade A')}) — **{price_str}**")
+            reply_lines.append(f"  *Farmer:* {p.get('farmer_name', 'Direct Farm')} ({farmer_loc}) | *Stock:* {stock}")
+            
+            actions.append({
+                "type": "add_to_cart",
+                "label": f"🛒 Add {p.get('name')} ({price_str})",
+                "product_id": p.get("id"),
+                "product_name": p.get("name")
+            })
+
+        reply_lines.append("\nAll produce is sourced directly from certified farmer producer groups with zero middleman commissions.")
+        
+        return {
+            "success": True,
+            "source": "KisanSetu Intelligent Assistant",
+            "reply": "\n".join(reply_lines),
+            "intent": "marketplace_search",
+            "referenced_orders": [],
+            "referenced_products": [p.get("name") for p in items_to_show],
+            "suggested_actions": actions[:3]
+        }
+
+    # 4. Default / Greeting
+    greeting_reply = (
+        f"Hello {user_name}! 👋 I am **KisanMitra AI**, your personal shopping and order assistant on KisanSetu.\n\n"
+        "Here are things I can help you with right now:\n"
+        "- 📦 **Order Tracking:** Ask *'Where is my latest order?'* or check by order number like *'Status of #ORD-1001'*.\n"
+        "- 🛒 **Marketplace Search:** Ask *'What vegetables are available?'*, *'Price of tomatoes'*, or *'Show organic grains'*.\n"
+        "- 💰 **Bulk Slabs:** Ask about volume tier discounts directly from farmers.\n"
+        "- 🌾 **Seasonal Guidance:** Inquire about crops cultivated across Indian states and harvest freshness."
+    )
+    return {
+        "success": True,
+        "source": "KisanSetu Intelligent Assistant",
+        "reply": greeting_reply,
+        "intent": "greeting",
+        "referenced_orders": [],
+        "referenced_products": [],
+        "suggested_actions": [
+            {"type": "quick_ask", "label": "📦 Track My Latest Order", "query": "Where is my latest order?"},
+            {"type": "quick_ask", "label": "🍅 Fresh Vegetables Available", "query": "What fresh vegetables are available today?"},
+            {"type": "navigate_tab", "label": "🛒 Browse Marketplace", "tab": "marketplace"}
+        ]
+    }
+
+@ai_bp.route("/consumer-chat", methods=["POST"])
+def consumer_chat_endpoint():
+    """
+    Consumer AI Chatbot Endpoint.
+    Accepts: {
+        "message": "Where is my order?" | "What vegetables are available?",
+        "user_id": 12,
+        "buyer_name": "arjun",
+        "buyer_mobile": "9884123456",
+        "conversation_history": [...]
+    }
+    Grounds response with live marketplace products and consumer orders.
+    """
+    from backend.db import get_db
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+
+    if not message:
+        return jsonify({
+            "success": False,
+            "error": "Empty message. Please provide a query string."
+        }), 400
+
+    user_id = data.get("user_id")
+    buyer_name = data.get("buyer_name")
+    buyer_mobile = data.get("buyer_mobile")
+    language = data.get("language") or "en"
+    conv_history = data.get("conversation_history") or []
+
+    # 1. Fetch live marketplace products with slab pricing
+    marketplace_items = []
+    order_history = []
+    user_context = {
+        "id": user_id,
+        "name": buyer_name or "Valued Customer",
+        "mobile": buyer_mobile or "",
+        "language": language,
+        "location": "Chennai, Tamil Nadu"
+    }
+
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # Fetch active products
+        cursor.execute("""
+            SELECT p.id, p.farmer_id, p.farmer_name, p.farmer_state, p.farmer_district,
+                   p.name, p.category, p.variety, p.grade, p.available_quantity, p.image_url,
+                   s.min_quantity, s.max_quantity, s.price_per_kg
+            FROM products p
+            LEFT JOIN price_slabs s ON p.id = s.product_id
+            WHERE p.available_quantity > 0
+            ORDER BY p.id DESC
+        """)
+        rows = cursor.fetchall()
+
+        # Aggregate products by ID
+        prod_map = {}
+        for r in rows:
+            pid = r["id"]
+            if pid not in prod_map:
+                prod_map[pid] = {
+                    "id": pid,
+                    "farmer_id": r["farmer_id"],
+                    "farmer_name": r["farmer_name"],
+                    "farmer_state": r["farmer_state"],
+                    "farmer_district": r["farmer_district"],
+                    "name": r["name"],
+                    "category": r["category"],
+                    "variety": r["variety"],
+                    "grade": r["grade"],
+                    "available_quantity": r["available_quantity"],
+                    "image_url": r["image_url"],
+                    "slabs": []
+                }
+            if r["price_per_kg"] is not None:
+                prod_map[pid]["slabs"].append({
+                    "min_quantity": r["min_quantity"],
+                    "max_quantity": r["max_quantity"],
+                    "price_per_kg": r["price_per_kg"]
+                })
+        marketplace_items = list(prod_map.values())
+
+        # Fetch consumer's orders
+        order_query_conditions = []
+        order_params = []
+        if user_id:
+            order_query_conditions.append("buyer_id = ?")
+            order_params.append(user_id)
+        if buyer_name:
+            order_query_conditions.append("LOWER(buyer_name) = LOWER(?)")
+            order_params.append(buyer_name)
+        if buyer_mobile:
+            order_query_conditions.append("buyer_mobile = ?")
+            order_params.append(buyer_mobile)
+
+        if order_query_conditions:
+            where_clause = " OR ".join(order_query_conditions)
+            cursor.execute(f"""
+                SELECT * FROM orders 
+                WHERE {where_clause}
+                ORDER BY id DESC LIMIT 15
+            """, tuple(order_params))
+            order_rows = cursor.fetchall()
+            order_history = [dict(row) for row in order_rows]
+        else:
+            # If no user identified, fetch latest sample orders so bot can answer if demoing
+            cursor.execute("SELECT * FROM orders ORDER BY id DESC LIMIT 5")
+            order_history = [dict(row) for row in cursor.fetchall()]
+
+        conn.close()
+    except Exception as db_err:
+        print(f"[AIEngine] Error fetching grounding context for chatbot: {db_err}")
+
+    # 2. Try Google Gemini AI first
+    try:
+        from backend.gemini_service import get_gemini_consumer_chat_reply
+        gemini_res = get_gemini_consumer_chat_reply(
+            message=message,
+            user_context=user_context,
+            marketplace_items=marketplace_items,
+            order_history=order_history,
+            conversation_history=conv_history
+        )
+        if gemini_res and gemini_res.get("success"):
+            return jsonify(gemini_res)
+    except Exception as g_err:
+        print(f"[AIEngine] Gemini consumer chat call error: {g_err}")
+
+    # 3. Fallback to Heuristic NLP Assistant
+    fallback_res = _heuristic_consumer_chat(
+        message=message,
+        user_context=user_context,
+        marketplace_items=marketplace_items,
+        order_history=order_history
+    )
+    return jsonify(fallback_res)
+
+
+
