@@ -218,19 +218,29 @@ const api = {
         });
     },
 
+    getFarmerLocation() {
+        const u = this.currentUser;
+        if (!u) return "Tamil Nadu, India";
+        const parts = [u.village, u.district, u.state].filter(Boolean);
+        if (parts.length > 0) return parts.join(", ");
+        return u.district || u.state || u.location || "Tamil Nadu, India";
+    },
+
     // AI Forecast & Dynamic Gemini Price Recommendation
-    async getAIForecast(commodity = "Tomato", month = null) {
+    async getAIForecast(commodity = "Tomato", region = null, month = null) {
         const m = month || (new Date().getMonth() + 1);
-        return this.request(`/api/ai/forecast?commodity=${encodeURIComponent(commodity)}&month=${m}`);
+        const loc = region || this.getFarmerLocation();
+        return this.request(`/api/ai/forecast?commodity=${encodeURIComponent(commodity)}&region=${encodeURIComponent(loc)}&month=${m}`);
     },
 
     async suggestCropPrice(commodity, region = null, month = null) {
-        const userState = (this.currentUser && (this.currentUser.state || this.currentUser.location)) || "Tamil Nadu, India";
+        const loc = region || this.getFarmerLocation();
         return this.request("/api/ai/suggest-price", {
             method: "POST",
             body: JSON.stringify({
                 commodity,
-                region: region || userState,
+                region: loc,
+                location: loc,
                 month: month || (new Date().getMonth() + 1)
             })
         });

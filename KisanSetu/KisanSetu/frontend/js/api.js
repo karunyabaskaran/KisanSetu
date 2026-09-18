@@ -73,10 +73,10 @@ const api = {
     },
 
     // Auth
-    async sendOtp(mobile) {
+    async sendOtp(mobile, role = "user") {
         return this.request("/api/auth/send-otp", {
             method: "POST",
-            body: JSON.stringify({ mobile })
+            body: JSON.stringify({ mobile, role })
         });
     },
 
@@ -218,9 +218,32 @@ const api = {
         });
     },
 
-    // AI Forecast
-    async getAIForecast(commodity = "Ponni Raw Rice (Organic)", month = 9) {
-        return this.request(`/api/ai/forecast?commodity=${encodeURIComponent(commodity)}&month=${month}`);
+    getFarmerLocation() {
+        const u = this.currentUser;
+        if (!u) return "Tamil Nadu, India";
+        const parts = [u.village, u.district, u.state].filter(Boolean);
+        if (parts.length > 0) return parts.join(", ");
+        return u.district || u.state || u.location || "Tamil Nadu, India";
+    },
+
+    // AI Forecast & Dynamic Gemini Price Recommendation
+    async getAIForecast(commodity = "Tomato", region = null, month = null) {
+        const m = month || (new Date().getMonth() + 1);
+        const loc = region || this.getFarmerLocation();
+        return this.request(`/api/ai/forecast?commodity=${encodeURIComponent(commodity)}&region=${encodeURIComponent(loc)}&month=${m}`);
+    },
+
+    async suggestCropPrice(commodity, region = null, month = null) {
+        const loc = region || this.getFarmerLocation();
+        return this.request("/api/ai/suggest-price", {
+            method: "POST",
+            body: JSON.stringify({
+                commodity,
+                region: loc,
+                location: loc,
+                month: month || (new Date().getMonth() + 1)
+            })
+        });
     },
 
     // Logistics Dispatch & Route Optimization
@@ -231,10 +254,10 @@ const api = {
         });
     },
 
-    async getOptimizedRoute(corridor = "chennai_corridor") {
+    async getOptimizedRoute(corridor = "chennai_corridor", farmerLocation = null) {
         return this.request("/api/logistics/optimize-route", {
             method: "POST",
-            body: JSON.stringify({ corridor })
+            body: JSON.stringify({ corridor, farmer_location: farmerLocation })
         });
     },
 

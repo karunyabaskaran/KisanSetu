@@ -82,6 +82,7 @@ const FarmerController = {
     },
 
     // --- AI Demand & Price Forecasting for Farmers ---
+    // --- AI Demand & Price Forecasting for Farmers ---
     async loadFarmerAIForecast(commodity = null) {
         const cropSelect = document.getElementById("farmerAICropSelect");
         let targetCrop = commodity;
@@ -91,57 +92,77 @@ const FarmerController = {
 
         const statsGrid = document.getElementById("farmerAIStatsGrid");
         const insightEl = document.getElementById("farmerAIInsightText");
+        const userLoc = (window.api && window.api.getFarmerLocation) ? window.api.getFarmerLocation() : "Tamil Nadu, India";
 
         if (statsGrid) {
             statsGrid.innerHTML = `
                 <div class="text-muted small py-3" style="display: flex; align-items: center; gap: 8px;">
                     <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
-                    <span>Consulting Google Gemini AI for <strong>${targetCrop}</strong> market trend & pricing...</span>
+                    <span>Consulting Google Gemini AI for <strong>${targetCrop}</strong> market trend & pricing in <em>${userLoc}</em>...</span>
                 </div>
             `;
         }
 
         try {
-            const res = await api.getAIForecast(targetCrop);
+            const res = await api.getAIForecast(targetCrop, userLoc);
             this.latestAIForecast = res;
-
-            if (statsGrid) {
-                const sourceBadge = (res.source === "Google Gemini AI") 
-                    ? `<span class="badge" style="background:#1a73e8; color:white; font-size:10px; margin-left:4px;">Gemini AI</span>`
-                    : `<span class="badge badge-secondary" style="font-size:10px;">ML Heuristic</span>`;
-
-                statsGrid.innerHTML = `
-                    <div class="farmer-ai-box">
-                        <div class="lbl">${i18n.t("demand_score")} ${sourceBadge}</div>
-                        <div class="val">${res.demand_index} / 100</div>
-                        <div class="sub">${res.demand_index >= 75 ? '🔥 ' + i18n.t("high_demand") : '⚖️ ' + i18n.t("moderate_demand")} (${res.demand_rating || 'Active'})</div>
-                    </div>
-                    <div class="farmer-ai-box">
-                        <div class="lbl">${i18n.t("retail_guidance")}</div>
-                        <div class="val" style="color: #16a34a;">${res.price_guidance.recommended_retail_slab}</div>
-                        <div class="sub">${i18n.t("slab_tier_retail")} (Direct Consumer)</div>
-                    </div>
-                    <div class="farmer-ai-box">
-                        <div class="lbl">${i18n.t("bulk_guidance")}</div>
-                        <div class="val" style="color: #0284c7;">${res.price_guidance.recommended_bulk_slab}</div>
-                        <div class="sub">${i18n.t("slab_tier_bulk")} (Wholesale / Institutions)</div>
-                    </div>
-                    <div class="farmer-ai-box">
-                        <div class="lbl">${i18n.t("msp_baseline")}</div>
-                        <div class="val" style="color: #6366f1;">₹${res.price_guidance.government_msp} / kg</div>
-                        <div class="sub">${i18n.t("lbl_trend")}: ${i18n.translateTrend ? i18n.translateTrend(res.price_guidance.trend) : res.price_guidance.trend}</div>
-                    </div>
-                `;
-            }
-
-            if (insightEl) {
-                const outlookLabel = i18n.t("ai_outlook_label");
-                const outlookText = i18n.translateInsight ? i18n.translateInsight(res.market_insights, targetCrop) : res.market_insights;
-                insightEl.innerHTML = `💡 <strong>${outlookLabel} (${res.commodity}):</strong> ${outlookText}`;
-            }
+            this.updateAIAdvisorCards(res);
         } catch (err) {
             console.error("Farmer AI forecast error:", err);
             if (statsGrid) statsGrid.innerHTML = `<div class="text-muted small">${i18n.t("ai_error_hint")}</div>`;
+        }
+    },
+
+    updateAIAdvisorCards(res) {
+        if (!res) return;
+        const statsGrid = document.getElementById("farmerAIStatsGrid");
+        const insightEl = document.getElementById("farmerAIInsightText");
+        const cropSelect = document.getElementById("farmerAICropSelect");
+
+        if (cropSelect && res.commodity) {
+            const foundOpt = Array.from(cropSelect.options).find(o => o.value.toLowerCase() === res.commodity.toLowerCase());
+            if (foundOpt) {
+                cropSelect.value = foundOpt.value;
+            }
+        }
+
+        if (statsGrid && res.price_guidance) {
+            const sourceBadge = (res.source === "Google Gemini AI") 
+                ? `<span class="badge" style="background:#1a73e8; color:white; font-size:10px; margin-left:4px;">Gemini AI</span>`
+                : `<span class="badge badge-secondary" style="font-size:10px;">ML Heuristic</span>`;
+
+            const savingsSub = res.savings_percentage 
+                ? `🔥 ${res.savings_percentage}% less than local vendors (~₹${res.local_vendor_price || (res.price_guidance.local_vendor_price || '')})` 
+                : `${i18n.t("slab_tier_retail")} (Direct Consumer)`;
+
+            statsGrid.innerHTML = `
+                <div class="farmer-ai-box">
+                    <div class="lbl">${i18n.t("demand_score")} ${sourceBadge}</div>
+                    <div class="val">${res.demand_index} / 100</div>
+                    <div class="sub">${res.demand_index >= 75 ? '🔥 ' + i18n.t("high_demand") : '⚖️ ' + i18n.t("moderate_demand")} (${res.demand_rating || 'Active'})</div>
+                </div>
+                <div class="farmer-ai-box">
+                    <div class="lbl">${i18n.t("retail_guidance")}</div>
+                    <div class="val" style="color: #16a34a;">${res.price_guidance.recommended_retail_slab}</div>
+                    <div class="sub" style="color: #15803d; font-weight: 600;">${savingsSub}</div>
+                </div>
+                <div class="farmer-ai-box">
+                    <div class="lbl">${i18n.t("bulk_guidance")}</div>
+                    <div class="val" style="color: #0284c7;">${res.price_guidance.recommended_bulk_slab}</div>
+                    <div class="sub">${i18n.t("slab_tier_bulk")} (Wholesale / Institutions)</div>
+                </div>
+                <div class="farmer-ai-box">
+                    <div class="lbl">${i18n.t("msp_baseline")}</div>
+                    <div class="val" style="color: #6366f1;">₹${res.price_guidance.government_msp} / kg</div>
+                    <div class="sub">${i18n.t("lbl_trend")}: ${i18n.translateTrend ? i18n.translateTrend(res.price_guidance.trend) : res.price_guidance.trend}</div>
+                </div>
+            `;
+        }
+
+        if (insightEl) {
+            const outlookLabel = i18n.t("ai_outlook_label");
+            const outlookText = res.local_vendor_comparison || (i18n.translateInsight ? i18n.translateInsight(res.market_insights, res.commodity) : res.market_insights);
+            insightEl.innerHTML = `💡 <strong>${outlookLabel} (${res.commodity}):</strong> ${outlookText}`;
         }
     },
 
@@ -203,9 +224,11 @@ const FarmerController = {
     // Triggered live whenever farmer types in "+ Add New Produce" Product / Crop Name
     onCropNameInput(val) {
         const cropName = (val || "").trim();
+        const banner = document.getElementById("farmerPriceComparisonBanner");
         if (!cropName) {
             const surgeEl = document.getElementById("farmerFestivalSurgeAlert");
             if (surgeEl) surgeEl.style.display = "none";
+            if (banner) banner.style.display = "none";
             return;
         }
 
@@ -216,12 +239,36 @@ const FarmerController = {
             catSelect.value = detectedCat;
         }
 
-        // 2. Debounced Gemini AI Regional Festival & Fair Price calculation
+        // 2. Debounced Gemini AI Regional Fair Price calculation
         if (this._cropInputTimer) clearTimeout(this._cropInputTimer);
-        if (cropName.length >= 3) {
+        if (cropName.length >= 2) {
+            this.showPricingLoadingState(cropName);
             this._cropInputTimer = setTimeout(() => {
                 this.fetchFestivalPriceForCrop(cropName);
-            }, 600);
+            }, 500);
+        }
+    },
+
+    onCropNameChange(val) {
+        const cropName = (val || "").trim();
+        if (cropName.length >= 2) {
+            if (this._cropInputTimer) clearTimeout(this._cropInputTimer);
+            this.showPricingLoadingState(cropName);
+            this.fetchFestivalPriceForCrop(cropName);
+        }
+    },
+
+    showPricingLoadingState(cropName) {
+        const banner = document.getElementById("farmerPriceComparisonBanner");
+        const userLoc = (window.api && window.api.getFarmerLocation) ? window.api.getFarmerLocation() : "Tamil Nadu, India";
+        if (banner) {
+            banner.style.display = "block";
+            banner.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px; padding: 4px 0; color: #065f46; font-size: 12px;">
+                    <div class="spinner-border spinner-border-sm text-success" role="status" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                    <span>🤖 Consulting <strong>Google Gemini AI</strong> to estimate local retail vendor prices for <strong>${cropName}</strong> in <em>${userLoc}</em> & entering fair farm-gate discount...</span>
+                </div>
+            `;
         }
     },
 
@@ -231,10 +278,16 @@ const FarmerController = {
         const surgeAlert = document.getElementById("farmerFestivalSurgeAlert");
         const surgeText = document.getElementById("farmerFestivalSurgeText");
         const surgeBadge = document.getElementById("farmerFestivalSurgeBadge");
+        const btn = document.getElementById("btnAISuggestPrice");
+
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = `⏳ Gemini Pricing...`;
+        }
 
         try {
-            const userState = (window.api && window.api.currentUser && (window.api.currentUser.state || window.api.currentUser.location)) || "Tamil Nadu, India";
-            const res = await api.suggestCropPrice(cleanName, userState);
+            const userLoc = (window.api && window.api.getFarmerLocation) ? window.api.getFarmerLocation() : "Tamil Nadu, India";
+            const res = await api.suggestCropPrice(cleanName, userLoc);
             if (res && res.success) {
                 this.latestAIForecast = res;
 
@@ -247,51 +300,83 @@ const FarmerController = {
                     }
                 }
 
-                // Apply AI calculated slabs
+                // Apply AI calculated slabs automatically into editable form inputs!
                 this.applyAIPricesToSlabs();
+
+                // Render the Local Vendor Price Comparison Banner
+                this.renderPriceComparisonBanner(res);
+
+                // Update top AI demand & forecast card to sync with this crop
+                this.updateAIAdvisorCards(res);
 
                 // Display Festival Surge if applicable
                 const fest = res.festival_impact;
-                if (fest && fest.festival_name && fest.festival_name !== "Standard Market Cycle") {
+                if (fest && fest.festival_name && fest.festival_name !== "Standard Market Cycle" && fest.festival_name !== "Regional Harvest Season") {
                     if (surgeAlert) {
                         surgeAlert.style.display = "flex";
                         if (surgeText) {
-                            surgeText.innerHTML = `<strong>${fest.festival_name} Surge:</strong> ${fest.notes || 'High seasonal festival demand in ' + userState}`;
+                            surgeText.innerHTML = `<strong>${fest.festival_name} Surge:</strong> ${fest.notes || fest.festival_notes || 'High seasonal festival demand in ' + userLoc}`;
                         }
                         if (surgeBadge) {
-                            surgeBadge.innerText = `+${fest.surge_percentage || 15}% Festival Surge`;
+                            surgeBadge.innerText = `${fest.surge_percentage || '+15%'} Festival Surge`;
                             surgeBadge.style.background = "#f59e0b";
                         }
                     }
-                } else if (res.price_guidance && res.price_guidance.festival_impact && res.price_guidance.festival_impact.is_festival_season) {
-                    const fi = res.price_guidance.festival_impact;
-                    if (surgeAlert) {
-                        surgeAlert.style.display = "flex";
-                        if (surgeText) {
-                            surgeText.innerHTML = `<strong>${fi.festival_name || 'Upcoming Festival'} Demand:</strong> ${fi.notes || 'Expected price appreciation.'}`;
-                        }
-                        if (surgeBadge) {
-                            surgeBadge.innerText = `+${fi.surge_percentage || 15}% Surge`;
-                            surgeBadge.style.background = "#f59e0b";
-                        }
-                    }
-                } else {
-                    // Show standard Gemini fair pricing guidance
-                    if (surgeAlert) {
-                        surgeAlert.style.display = "flex";
-                        if (surgeText) {
-                            surgeText.innerHTML = `<strong>Gemini Fair Price:</strong> ${res.price_guidance.recommended_retail_slab} retail / ${res.price_guidance.recommended_bulk_slab} wholesale for ${cleanName}.`;
-                        }
-                        if (surgeBadge) {
-                            surgeBadge.innerText = `AI Optimized`;
-                            surgeBadge.style.background = "#10b981";
-                        }
-                    }
+                } else if (surgeAlert) {
+                    surgeAlert.style.display = "none";
                 }
             }
         } catch (err) {
-            console.warn("fetchFestivalPriceForCrop background error:", err);
+            console.warn("fetchFestivalPriceForCrop error:", err);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `✨ AI Price Suggestion`;
+            }
         }
+    },
+
+    renderPriceComparisonBanner(res) {
+        const banner = document.getElementById("farmerPriceComparisonBanner");
+        if (!banner) return;
+
+        const crop = res.commodity || "Produce";
+        const retail = (res.price_guidance && res.price_guidance.recommended_retail_slab) || `₹${res.suggested_slabs?.[0]?.price_per_kg || 35} / kg`;
+        const localVendor = res.local_vendor_price || (res.price_guidance && res.price_guidance.local_vendor_price) || (parseFloat(String(retail).replace(/[^0-9.]/g, '')) * 1.25).toFixed(1);
+        const savings = res.savings_percentage || (res.price_guidance && res.price_guidance.savings_percentage) || 20;
+        const region = res.region || "Your Region";
+        const comparisonText = res.local_vendor_comparison || `Local retail street vendors charge ~₹${localVendor}/kg in ${region}. Direct farm price ${retail} is ${savings}% cheaper for buyers while giving you 100% farm-gate profit.`;
+
+        banner.style.display = "block";
+        banner.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <span style="font-size: 16px;">✨</span>
+                        <strong style="color: #065f46; font-size: 13px;">Gemini Fair Price Applied for ${crop}</strong>
+                        <span class="badge" style="background: #10b981; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px;">${res.source || 'Gemini AI'}</span>
+                    </div>
+                    <div style="font-size: 12px; color: #047857; margin-bottom: 6px; line-height: 1.4;">
+                        ${comparisonText}
+                    </div>
+                    <div style="font-size: 11px; color: #64748b; font-style: italic;">
+                        ✍️ <em>Prices calculated above have been automatically entered into the volume tiers below. You can edit any price or quantity limit freely.</em>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="background: white; border: 1px solid #a7f3d0; padding: 6px 10px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase;">Local Vendors</div>
+                        <div style="font-size: 13px; font-weight: 700; color: #dc2626; text-decoration: line-through;">₹${localVendor}/kg</div>
+                    </div>
+                    <div style="font-size: 14px; font-weight: bold; color: #059669;">➔</div>
+                    <div style="background: #ecfdf5; border: 1.5px solid #10b981; padding: 6px 12px; border-radius: 8px; text-align: center;">
+                        <div style="font-size: 10px; color: #047857; text-transform: uppercase; font-weight: 600;">Farm-Gate Direct</div>
+                        <div style="font-size: 15px; font-weight: 800; color: #047857;">${retail}</div>
+                        <span class="badge" style="background: #059669; color: white; font-size: 9px; padding: 1px 6px;">Save ${savings}%</span>
+                    </div>
+                </div>
+            </div>
+        `;
     },
 
     // --- Instant 1-Click AI Price Suggestion for Farmer Form ---
@@ -304,8 +389,8 @@ const FarmerController = {
                 cropName = cropSelect.value;
                 if (prodNameInput) prodNameInput.value = cropName;
             } else {
-                cropName = "Tomato";
-                if (prodNameInput) prodNameInput.value = "Tomato";
+                cropName = "Potato";
+                if (prodNameInput) prodNameInput.value = "Potato";
             }
         }
 
@@ -315,18 +400,15 @@ const FarmerController = {
             btn.innerHTML = `⏳ Analyzing...`;
         }
 
-        try {
-            const userState = (window.api && window.api.currentUser && (window.api.currentUser.state || window.api.currentUser.location)) || "Tamil Nadu, India";
-            if (window.showToast) window.showToast(`Asking Google Gemini AI for recent mandi trends & festivals on '${cropName}' in ${userState}...`, "info");
-            
-            await this.fetchFestivalPriceForCrop(cropName);
-            
-            // Also update forecast card display
-            this.loadFarmerAIForecast(cropName);
+        this.showPricingLoadingState(cropName);
 
+        try {
+            await this.fetchFestivalPriceForCrop(cropName);
             if (this.latestAIForecast && this.latestAIForecast.price_guidance) {
+                const retail = this.latestAIForecast.price_guidance.recommended_retail_slab;
+                const savings = this.latestAIForecast.savings_percentage || 20;
                 if (window.showToast) {
-                    window.showToast(`✨ Gemini AI suggested: ${this.latestAIForecast.price_guidance.recommended_retail_slab} retail, ${this.latestAIForecast.price_guidance.recommended_bulk_slab} wholesale for ${cropName}!`, "success");
+                    window.showToast(`✨ Gemini Fair Price: ${retail} (${savings}% lower than local vendors) entered for ${cropName}!`, "success");
                 }
             }
         } catch (err) {
@@ -341,21 +423,18 @@ const FarmerController = {
     },
 
     applyAIPricesToSlabs() {
-        if (!this.latestAIForecast) {
-            window.showToast("Please wait for AI forecast to load.", "warning");
-            return;
-        }
+        if (!this.latestAIForecast) return;
 
         // If Gemini provided exact slabs, use them!
         if (this.latestAIForecast.suggested_slabs && this.latestAIForecast.suggested_slabs.length === 3) {
             this.currentSlabs = JSON.parse(JSON.stringify(this.latestAIForecast.suggested_slabs));
         } else {
-            const guidance = this.latestAIForecast.price_guidance;
-            const retailStr = guidance.recommended_retail_slab.replace(/[^0-9.]/g, "");
-            const bulkStr = guidance.recommended_bulk_slab.replace(/[^0-9.]/g, "");
+            const guidance = this.latestAIForecast.price_guidance || {};
+            const retailStr = String(guidance.recommended_retail_slab || "35").replace(/[^0-9.]/g, "");
+            const bulkStr = String(guidance.recommended_bulk_slab || "28").replace(/[^0-9.]/g, "");
 
-            const retailPrice = parseFloat(retailStr) || 45.0;
-            const bulkPrice = parseFloat(bulkStr) || 35.0;
+            const retailPrice = parseFloat(retailStr) || 35.0;
+            const bulkPrice = parseFloat(bulkStr) || 28.0;
             const midPrice = Math.round(((retailPrice + bulkPrice) / 2) * 10) / 10;
 
             this.currentSlabs = [
@@ -365,16 +444,8 @@ const FarmerController = {
             ];
         }
 
-        // Also prefill crop name if empty
-        const cropInput = document.getElementById("prod_name");
-        if (cropInput && !cropInput.value) {
-            cropInput.value = this.latestAIForecast.commodity;
-        }
-
+        // Render into the editable form inputs
         this.renderSlabInputs();
-        if (window.showToast) {
-            window.showToast(`Applied AI recommended slabs for ${this.latestAIForecast.commodity}!`, "success");
-        }
     },
 
     // --- Slab Pricing Builder ---
@@ -389,15 +460,15 @@ const FarmerController = {
             row.innerHTML = `
                 <div class="slab-col">
                     <label class="small text-muted">${i18n.t("lbl_min_qty")}</label>
-                    <input type="number" step="0.5" class="form-control slab-min" value="${slab.min_quantity}" onchange="FarmerController.updateSlab(${index}, 'min_quantity', this.value)" required>
+                    <input type="number" step="0.5" class="form-control slab-min" value="${slab.min_quantity}" oninput="FarmerController.updateSlab(${index}, 'min_quantity', this.value)" onchange="FarmerController.updateSlab(${index}, 'min_quantity', this.value)" required>
                 </div>
                 <div class="slab-col">
                     <label class="small text-muted">${i18n.t("lbl_max_qty")}</label>
-                    <input type="number" step="0.5" class="form-control slab-max" placeholder="${i18n.t("ph_no_limit")}" value="${slab.max_quantity !== null ? slab.max_quantity : ''}" onchange="FarmerController.updateSlab(${index}, 'max_quantity', this.value)">
+                    <input type="number" step="0.5" class="form-control slab-max" placeholder="${i18n.t("ph_no_limit")}" value="${slab.max_quantity !== null ? slab.max_quantity : ''}" oninput="FarmerController.updateSlab(${index}, 'max_quantity', this.value)" onchange="FarmerController.updateSlab(${index}, 'max_quantity', this.value)">
                 </div>
                 <div class="slab-col">
                     <label class="small text-muted">${i18n.t("lbl_price_kg")}</label>
-                    <input type="number" step="0.5" class="form-control slab-price" value="${slab.price_per_kg}" onchange="FarmerController.updateSlab(${index}, 'price_per_kg', this.value)" required>
+                    <input type="number" step="0.5" class="form-control slab-price" value="${slab.price_per_kg}" oninput="FarmerController.updateSlab(${index}, 'price_per_kg', this.value)" onchange="FarmerController.updateSlab(${index}, 'price_per_kg', this.value)" required>
                 </div>
                 <div class="slab-col-action">
                     <button type="button" class="btn btn-sm btn-outline-danger" onclick="FarmerController.removeSlab(${index})" title="Remove Slab" ${this.currentSlabs.length <= 1 ? 'disabled' : ''}>✕</button>
@@ -509,6 +580,8 @@ const FarmerController = {
             this.uploadedProductImageData = null;
             const previewBox = document.getElementById("prod_image_preview_box");
             if (previewBox) previewBox.style.display = "none";
+            const compBanner = document.getElementById("farmerPriceComparisonBanner");
+            if (compBanner) compBanner.style.display = "none";
 
             this.currentSlabs = [
                 { min_quantity: 0, max_quantity: 10, price_per_kg: 40 },

@@ -42,10 +42,11 @@ def _get_api_key():
 
 # Resilient model fallback priority chain
 CANDIDATE_MODELS = [
-    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3-flash-preview",
     "gemini-flash-latest",
-    "gemini-3.7-flash",
-    "gemini-3.8-flash"
+    "gemini-2.5-flash-lite",
+    "gemini-3.7-flash"
 ]
 
 def _extract_json_safely(text: str) -> dict:
@@ -86,6 +87,14 @@ def _extract_json_safely(text: str) -> dict:
     if bulk_match:
         data["suggested_bulk"] = float(bulk_match.group(1))
 
+    local_match = re.search(r'"local_vendor_price"\s*:\s*([0-9.]+)', cleaned)
+    if local_match:
+        data["local_vendor_price"] = float(local_match.group(1))
+
+    savings_match = re.search(r'"savings_percentage"\s*:\s*([0-9.]+)', cleaned)
+    if savings_match:
+        data["savings_percentage"] = float(savings_match.group(1))
+
     msp_match = re.search(r'"msp"\s*:\s*([0-9.]+)', cleaned)
     if msp_match:
         data["msp"] = float(msp_match.group(1))
@@ -97,13 +106,11 @@ def _extract_json_safely(text: str) -> dict:
     # String extractions with multi-line and unclosed quote tolerance
     for key in ["demand_rating", "trend", "perishability", "market_insights", 
                 "category", "festival_name", "festival_notes", "festival_surge_percentage",
-                "dispatch_strategy", "perishable_cargo_priority", "recommended_departure_window",
-                "traffic_mitigation_tip", "fuel_efficiency_score", "relay_hub_advice"]:
-        # Try closed quotes with DOTALL first
+                "local_vendor_comparison", "dispatch_strategy", "perishable_cargo_priority", 
+                "recommended_departure_window", "traffic_mitigation_tip", "fuel_efficiency_score", "relay_hub_advice"]:
         pattern = rf'"{key}"\s*:\s*"([^"]+)"'
         m = re.search(pattern, cleaned, re.DOTALL)
         if not m:
-            # Fallback for unclosed or newline-interrupted string
             pattern_fallback = rf'"{key}"\s*:\s*"([^"\n\r}}]+)'
             m = re.search(pattern_fallback, cleaned)
         if m:
@@ -151,7 +158,7 @@ def _call_gemini(prompt: str, system_instruction: str = None) -> dict:
             method="POST"
         )
         try:
-            with urllib.request.urlopen(req, context=ctx, timeout=12) as response:
+            with urllib.request.urlopen(req, context=ctx, timeout=7) as response:
                 resp_json = json.loads(response.read().decode("utf-8"))
                 candidates = resp_json.get("candidates", [])
                 if candidates:
@@ -171,49 +178,91 @@ def _call_gemini(prompt: str, system_instruction: str = None) -> dict:
 
 def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, India", month: int = None) -> dict:
     """
-    Queries Google Gemini AI to analyze market trends and calculate festival-aware price guidance
-    for the selected crop (e.g., Carrot, Tomato, Onion, Potato, Rice, Wheat, etc.).
-    Incorporates recent festivals and upcoming festive demand surges in the farmer's state/region.
+    Queries Google Gemini AI to analyze market trends and calculate fair, direct farm-gate pricing
+    for the selected crop in the farmer's specific location.
+    Crucially: Estimates local retail vendor prices and prices farm-gate produce 15-25% lower than local vendors,
+    giving consumers huge savings while providing farmers higher margins by eliminating intermediaries.
     """
     if not month:
         month = datetime.datetime.now().month
 
     system_instruction = (
-        "You are KisanSetu's AI Agricultural Market & Festival Demand Intelligence Engine, specializing in Indian agricultural "
-        "commodity markets, APMC mandi arrivals, Agmarknet spot prices, and cultural festival demand dynamics. "
-        "Analyze regional harvest cycles and cultural festivals (e.g., Diwali, Pongal, Navratri, Dussehra, Onam, "
-        "Ganesh Chaturthi, Eid, temple feasts, weddings) in the farmer's state/region. "
-        "Detect the produce category (Vegetables, Fruits, Grains, Pulses, Spices) and suggest fair prices that "
-        "empower the farmer to capitalize on seasonal and festive demand surges."
+        "You are KisanSetu's AI Agricultural Market, Pricing & Mandi Intelligence Engine. "
+        "Your mission is to establish fair, direct-from-farmer pricing that eliminates extortionate middleman margins. "
+        "Estimate the prevailing local street vendor / retail market price for the produce in the farmer's specific location, "
+        "and calculate a recommended direct farm-gate retail price that is COMPARATIVELY LESS (15% to 25% lower) than local street vendors, "
+        "so consumers save money while the farmer receives a substantially higher, more profitable net realization than distress mandi sales."
     )
 
     prompt = f"""
-    Analyze the agricultural commodity: '{commodity}' in state/region: '{region}' for month {month} (1-12).
-    Identify recent festivals and upcoming regional festivals in '{region}' that drive demand for '{commodity}'.
-    (Example: Carrots surge during Diwali/winter for Halwa; Rice surges for Pongal; Onions & Tomatoes surge for wedding/festival feasts).
+    Analyze agricultural commodity '{commodity}' produced in farmer's location: '{region}' for month {month} (1-12).
     
+    Tasks:
+    1. Estimate the prevailing local retail street vendor / local market price in INR per kg for '{commodity}' in '{region}' ('local_vendor_price').
+    2. Calculate a direct farm-gate retail price ('suggested_retail') that is 15% to 25% CHEAPER than the local vendor price (eliminating intermediary markups).
+    3. Calculate a bulk wholesale price ('suggested_bulk') for orders >50kg, typically 15-20% lower than suggested_retail.
+    4. Provide the government MSP or mandi benchmark floor price ('msp') in INR/kg.
+    5. Calculate savings percentage for consumers buying directly from farmer ('savings_percentage', integer, e.g. 20).
+    6. Provide a concise comparison statement ('local_vendor_comparison') explaining the savings vs local vendors.
+    7. Identify any recent or upcoming regional festivals in '{region}' impacting demand for '{commodity}'.
+
     Return a valid JSON object with exact keys:
     - "commodity": "{commodity}"
     - "category": (one of: "Vegetables", "Fruits", "Grains", "Pulses", "Spices")
-    - "suggested_retail": (number, fair price in INR per kg for retail consumers, factoring in festival demand, e.g. 48.0)
-    - "suggested_bulk": (number, wholesale price in INR per kg for bulk buyers >50kg, typically 15-25% lower, e.g. 38.0)
-    - "msp": (number, government MSP baseline or local mandi floor price in INR per kg, e.g. 22.0)
-    - "demand_index": (number from 1 to 100 representing market demand intensity, e.g. 88)
-    - "demand_rating": (string, e.g. 'High Festive Demand' or 'Moderate Demand' or 'Peak Festive Surge')
-    - "trend": (string, e.g. '+22% (Festive Surge & High Mandi Inflow)')
+    - "local_vendor_price": (number, prevailing street vendor/market price in INR/kg, e.g. 45.0)
+    - "suggested_retail": (number, direct farm price in INR/kg, strictly 15-25% lower than local_vendor_price, e.g. 35.0)
+    - "suggested_bulk": (number, bulk wholesale price in INR/kg for >50kg, e.g. 29.0)
+    - "msp": (number, government MSP baseline or APMC mandi floor in INR/kg, e.g. 20.0)
+    - "savings_percentage": (number, percentage savings vs local vendors, e.g. 22)
+    - "local_vendor_comparison": (string, e.g. "Local vendors charge ~₹45/kg in {region}. Direct farm price of ₹35/kg is 22% cheaper for consumers while giving the farmer direct profit.")
+    - "demand_index": (number from 1 to 100 representing market demand, e.g. 84)
+    - "demand_rating": (string, e.g. 'High Demand' or 'Moderate Demand' or 'Peak Festive Surge')
+    - "trend": (string, e.g. '+18% (Direct Farm-to-Fork Advantage)')
     - "perishability": (string, e.g. 'High' or 'Medium' or 'Low')
-    - "festival_name": (string, primary relevant recent or upcoming festival in {region}, e.g. 'Diwali & Navratri Season' or 'Pongal Harvest Festival')
-    - "festival_surge_percentage": (string, estimated festival demand surge, e.g. '+18% Festive Uptick')
-    - "festival_notes": (string, 1-2 sentences explaining how this specific festival influences culinary/household consumption of {commodity} in {region})
-    - "market_insights": (string, 2 sentences summarizing mandi arrival volumes, cold storage trends, and why this suggested price protects the farmer)
+    - "festival_name": (string, primary relevant festival/season in {region} or 'Regional Harvest Season')
+    - "festival_surge_percentage": (string, e.g. '+15% Seasonal Uptick')
+    - "festival_notes": (string, 1-2 sentences on consumption trends for {commodity} in {region})
+    - "market_insights": (string, 1-2 sentences summarizing mandi arrival volumes and fair pricing protection)
     """
 
     try:
         data = _call_gemini(prompt, system_instruction=system_instruction)
-        retail = float(data.get("suggested_retail", 42.0))
-        bulk = float(data.get("suggested_bulk", round(retail * 0.82, 1)))
-        msp = float(data.get("msp", round(retail * 0.65, 1))) if data.get("msp") is not None else round(retail * 0.65, 1)
-        demand_idx = float(data.get("demand_index", 82.0))
+        
+        # Extract and sanitize numeric prices
+        raw_retail = data.get("suggested_retail")
+        raw_bulk = data.get("suggested_bulk")
+        raw_local = data.get("local_vendor_price")
+        raw_msp = data.get("msp")
+
+        def _clean_num(v, default):
+            if v is None:
+                return default
+            if isinstance(v, (int, float)):
+                return float(v)
+            num_match = re.search(r'([0-9.]+)', str(v))
+            return float(num_match.group(1)) if num_match else default
+
+        retail = _clean_num(raw_retail, 35.0)
+        local_vendor = _clean_num(raw_local, round(retail * 1.25, 1))
+
+        # Guarantee that farm-gate price is strictly less than local vendor price (at least 15% lower)
+        if retail >= local_vendor or local_vendor <= 0:
+            local_vendor = round(retail * 1.25, 1)
+            retail = round(local_vendor * 0.80, 1)
+        elif (local_vendor - retail) / local_vendor < 0.12:
+            retail = round(local_vendor * 0.80, 1)
+
+        bulk = _clean_num(raw_bulk, round(retail * 0.82, 1))
+        if bulk >= retail:
+            bulk = round(retail * 0.82, 1)
+
+        msp = _clean_num(raw_msp, round(retail * 0.65, 1))
+        demand_idx = _clean_num(data.get("demand_index"), 80.0)
+
+        # Savings percentage vs local vendors
+        savings_pct = int(round(((local_vendor - retail) / local_vendor) * 100))
+        if savings_pct < 10:
+            savings_pct = 20
 
         mid = round((retail + bulk) / 2.0, 1)
         slabs = [
@@ -223,9 +272,10 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, In
         ]
 
         cat = data.get("category", "Vegetables")
-        fest_name = data.get("festival_name", "Festive & Wedding Season")
-        fest_surge = data.get("festival_surge_percentage", "+15% Festive Demand")
-        fest_notes = data.get("festival_notes", f"Higher household consumption and culinary demand during regional festivities in {region}.")
+        fest_name = data.get("festival_name", "Regional Harvest Season")
+        fest_surge = data.get("festival_surge_percentage", "+12% Seasonal Uptick")
+        fest_notes = data.get("festival_notes", f"Active culinary demand across {region}.")
+        comparison = data.get("local_vendor_comparison", f"Local retail vendors charge ~₹{local_vendor}/kg in {region}. Direct farm price ₹{retail}/kg is {savings_pct}% cheaper for buyers.")
 
         return {
             "success": True,
@@ -235,8 +285,11 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, In
             "region": region,
             "forecast_period": f"Current Market & Festivals ({datetime.datetime.now().strftime('%B %Y')})",
             "demand_index": round(demand_idx, 1),
-            "demand_rating": data.get("demand_rating", "High Festive Demand" if demand_idx >= 75 else "Moderate Demand"),
-            "market_insights": data.get("market_insights", f"Gemini AI festival analysis confirms active regional demand for {commodity} in {region}."),
+            "demand_rating": data.get("demand_rating", "High Demand" if demand_idx >= 75 else "Moderate Demand"),
+            "local_vendor_price": local_vendor,
+            "savings_percentage": savings_pct,
+            "local_vendor_comparison": comparison,
+            "market_insights": data.get("market_insights", comparison),
             "festival_impact": {
                 "festival_name": fest_name,
                 "surge_percentage": fest_surge,
@@ -244,10 +297,12 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, In
             },
             "perishability": data.get("perishability", "Medium"),
             "price_guidance": {
+                "local_vendor_price": local_vendor,
+                "savings_percentage": savings_pct,
                 "government_msp": msp,
                 "recommended_retail_slab": f"₹{retail} / kg",
                 "recommended_bulk_slab": f"₹{bulk} / kg (>50 kg)",
-                "trend": data.get("trend", f"{fest_surge} (Gemini Festival Projection)")
+                "trend": data.get("trend", f"{savings_pct}% Cheaper than Local Vendors")
             },
             "suggested_slabs": slabs
         }

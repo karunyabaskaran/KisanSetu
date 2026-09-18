@@ -223,26 +223,31 @@
             <div class="farmer-ai-demand-card">
                 <div class="farmer-ai-header">
                     <div>
-                        <h3 data-i18n="farmer_ai_title">🤖 AI Crop Demand Forecast & Fair Price Advisor</h3>
+                        <h3 data-i18n="farmer_ai_title">🤖 AI Crop Demand Forecast & Fair Price Advisor <span class="badge" style="background: linear-gradient(135deg, #1a73e8, #4285f4); color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px; margin-left: 6px; font-weight: 500;">✨ Powered by Google Gemini AI</span></h3>
                         <p class="small text-muted mb-0" data-i18n="farmer_ai_subtitle">Plan your harvest and pricing
                             based on real-time market demand and government MSP baselines.</p>
                     </div>
                     <div class="farmer-ai-selector-wrap">
                         <label class="small font-weight-bold mb-0" data-i18n="lbl_select_crop">Select Crop:</label>
                         <select id="farmerAICropSelect" class="form-control"
-                            style="width: auto; display: inline-block;">
-                            <option value="Ponni Raw Rice (Organic)" data-i18n="crop_ponni_rice">Ponni Raw Rice
-                                (Organic)</option>
-                            <option value="1121 Traditional Basmati Rice" data-i18n="crop_basmati_rice">1121 Traditional
-                                Basmati Rice</option>
-                            <option value="Nashik Red Onions" data-i18n="crop_nashik_onion">Nashik Red Onions</option>
-                            <option value="Sharbati Golden Wheat" data-i18n="crop_sharbati_wheat">Sharbati Golden Wheat
-                            </option>
-                            <option value="Country Small Onions (Shallots)" data-i18n="crop_small_onions">Country Small
-                                Onions (Shallots)</option>
-                            <option value="Thompson Seedless Grapes" data-i18n="crop_grapes">Thompson Seedless Grapes
-                            </option>
+                            style="width: auto; display: inline-block;" onchange="FarmerController.onCropSelectChange(this.value)">
+                            <option value="Tomato" selected>🍅 Tomato (Fresh Farmgate)</option>
+                            <option value="Potato">🥔 Potato (Jyoti/Pukhraj)</option>
+                            <option value="Ponni Raw Rice (Organic)" data-i18n="crop_ponni_rice">🌾 Ponni Raw Rice (Organic)</option>
+                            <option value="1121 Traditional Basmati Rice" data-i18n="crop_basmati_rice">🍚 1121 Traditional Basmati Rice</option>
+                            <option value="Nashik Red Onions" data-i18n="crop_nashik_onion">🧅 Nashik Red Onions</option>
+                            <option value="Country Small Onions (Shallots)" data-i18n="crop_small_onions">🧅 Country Small Onions (Shallots)</option>
+                            <option value="Sharbati Golden Wheat" data-i18n="crop_sharbati_wheat">🌾 Sharbati Golden Wheat</option>
+                            <option value="Thompson Seedless Grapes" data-i18n="crop_grapes">🍇 Thompson Seedless Grapes</option>
+                            <option value="Green Chilli">🌶️ Green Chilli (G4)</option>
+                            <option value="Cabbage">🥬 Fresh Cabbage</option>
+                            <option value="Banana (Robusta)">🍌 Banana (Robusta)</option>
+                            <option value="Custom">✏️ Custom / Other Crop...</option>
                         </select>
+                        <div id="farmerAICustomCropWrapper" style="display: none; margin-left: 6px;">
+                            <input type="text" id="farmerAICustomCropInput" class="form-control form-control-sm" placeholder="Type crop name (e.g. Tomato)" style="width: 160px; display: inline-block;">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="FarmerController.loadCustomCropForecast()">Analyze</button>
+                        </div>
                         <button type="button" class="btn btn-sm btn-outline-success" onclick="toggleFarmerAICard()"
                             id="btnToggleFarmerAI">
                             Hide AI Advisor ▲
@@ -274,9 +279,21 @@
                     </div>
                     <form id="addProductForm">
                         <div class="form-group">
-                            <label data-i18n="lbl_crop_name">Product / Crop Name *</label>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <label data-i18n="lbl_crop_name" style="margin-bottom: 0;">Product / Crop Name *</label>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAISuggestPrice" onclick="FarmerController.suggestPriceForCurrentCrop()" style="font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 600;">
+                                    ✨ AI Price Suggestion
+                                </button>
+                            </div>
                             <input type="text" id="prod_name" class="form-control" data-i18n-placeholder="ph_crop_name"
-                                placeholder="e.g. Ponni Raw Rice, Nashik Red Onion" required>
+                                placeholder="e.g. carrot, tomato, ponni rice, wheat" required oninput="FarmerController.onCropNameInput(this.value)" onchange="FarmerController.onCropNameChange(this.value)">
+                            <div id="farmerFestivalSurgeAlert" style="display: none; margin-top: 6px; padding: 6px 10px; background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: 8px; font-size: 12px; color: #92400e; align-items: center; justify-content: space-between; gap: 8px;">
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 14px;">🎉</span>
+                                    <span id="farmerFestivalSurgeText"><strong>Festival Surge Detected:</strong> Upcoming festival demand boost.</span>
+                                </div>
+                                <span class="badge" id="farmerFestivalSurgeBadge" style="background: #f59e0b; color: white; border-radius: 12px; font-size: 10px; padding: 2px 8px; white-space: nowrap;">+15% Surge</span>
+                            </div>
                         </div>
                         <div class="form-row-2">
                             <div class="form-group">
@@ -324,6 +341,11 @@
                                 <button type="button" class="btn btn-xs btn-outline-primary"
                                     onclick="FarmerController.addSlabRow()" data-i18n="btn_add_tier">+ Add Tier</button>
                             </div>
+
+                            <!-- Dynamic Gemini vs Local Vendor Fair Price Banner -->
+                            <div id="farmerPriceComparisonBanner" style="display: none; margin-bottom: 12px; padding: 10px 14px; background: linear-gradient(135deg, #ecfdf5, #f0fdf4); border: 1.5px solid #86efac; border-radius: 10px; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08);">
+                            </div>
+
                             <div id="slabListContainer">
                                 <!-- Dynamic rows rendered by FarmerController -->
                             </div>
@@ -1043,52 +1065,51 @@
 
                 <!-- Map and Waypoints Side-by-Side Grid -->
                 <div class="logistics-map-workspace">
-                    <!-- Left: Interactive Leaflet Map -->
+                    <!-- Left: Interactive Google Maps Panel -->
                     <div class="logistics-map-panel">
                         <div class="map-header-strip">
                             <span class="map-status-pill">
-                                <span class="live-dot"></span>
-                                <span data-i18n="lbl_live_traffic_telemetry">Live Traffic Multipliers Active</span>
+                                <span class="live-dot" style="background: #4285f4;"></span>
+                                <span>Google Maps Fleet Navigation Active</span>
                             </span>
                             <div class="map-legend-items">
-                                <span class="legend-chip"><span class="legend-color-box bg-depot"></span> <span
-                                        data-i18n="legend_depot">Depot</span></span>
-                                <span class="legend-chip"><span class="legend-color-box bg-hub"></span> <span
-                                        data-i18n="legend_hub">Hub Pickup</span></span>
-                                <span class="legend-chip"><span class="legend-color-box bg-delivery"></span> <span
-                                        data-i18n="legend_delivery">Consumer Drop</span></span>
-                                <span class="legend-chip"><span class="legend-line line-green"></span> <span
-                                        data-i18n="legend_free_flow">Free Flow</span></span>
-                                <span class="legend-chip"><span class="legend-line line-amber"></span> <span
-                                        data-i18n="legend_moderate">Moderate</span></span>
-                                <span class="legend-chip"><span class="legend-line line-red"></span> <span
-                                        data-i18n="legend_heavy">Heavy</span></span>
+                                <span class="legend-chip"><span class="legend-color-box bg-depot"></span> <span>Depot</span></span>
+                                <span class="legend-chip"><span class="legend-color-box bg-hub"></span> <span>Hub Pickup</span></span>
+                                <span class="legend-chip"><span class="legend-color-box bg-delivery"></span> <span>Direct Drop</span></span>
+                                <span class="legend-chip"><span class="legend-color-box" style="background: #9333ea;"></span> <span>Relay Drop</span></span>
+                                <span class="legend-chip"><span class="legend-line line-green"></span> <span>Corridor</span></span>
                             </div>
                         </div>
 
-                        <!-- OpenStreetMap Delivery Search & Live Navigation Toolbar -->
-                        <div class="osm-navigation-toolbar">
-                            <div class="osm-search-input-group">
-                                <span class="osm-search-icon">🗺️</span>
-                                <input type="text" id="osmDeliverySearchInput" class="osm-search-input"
-                                    placeholder="Search delivery location or landmark on OpenStreetMap (e.g. Adyar, Chennai)..."
+                        <!-- Google Maps Delivery Search & Live Navigation Toolbar -->
+                        <div class="osm-navigation-toolbar" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div class="osm-search-input-group" style="display: flex; align-items: center; gap: 6px; flex: 1; max-width: 450px;">
+                                <span class="osm-search-icon">📍</span>
+                                <input type="text" id="googleDeliverySearchInput" class="osm-search-input form-control form-control-sm"
+                                    placeholder="Search location on Google Maps (e.g. Adyar, Chennai)..."
                                     onkeypress="if(event.key==='Enter') LogisticsHook.searchDeliveryLocation()">
                                 <button type="button" class="btn btn-sm btn-primary"
                                     onclick="LogisticsHook.searchDeliveryLocation()">
-                                    <span>🔍</span> <span data-i18n="btn_search_osm">Search on OSM</span>
+                                    <span>🔍</span> <span>Search</span>
                                 </button>
                             </div>
                             <div class="osm-toolbar-actions">
-                                <button type="button" class="btn btn-sm btn-outline-success font-weight-bold"
-                                    onclick="LogisticsHook.openExternalOSMNavigation()"
-                                    title="Open full optimized corridor itinerary in OpenStreetMap Directions">
-                                    <span>🧭</span> <span data-i18n="btn_open_osm_directions">Turn-by-Turn in
-                                        OpenStreetMap</span>
+                                <button type="button" class="btn btn-sm btn-outline-primary font-weight-bold"
+                                    id="btnGoogleMapsNav"
+                                    onclick="LogisticsHook.openGoogleMapsDirections()"
+                                    title="Open full optimized corridor in Google Maps">
+                                    <span>🗺️</span> <span>Turn-by-Turn in Google Maps</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div id="logisticsRouteMap" class="logistics-leaflet-container"></div>
+                        <!-- Farmer Aggregation Hub & Relay Status Bar -->
+                        <div id="logisticsHubStatusBar" style="display: none; padding: 6px 12px; background: #eff6ff; border-bottom: 1px solid #bfdbfe; font-size: 12px; color: #1e40af; justify-content: space-between; align-items: center;">
+                            <span id="logisticsFarmerHubText">🌾 <strong>Farmer Nearest Hub:</strong> Resolving nearest collection center...</span>
+                            <span id="logisticsRelayBadge" class="badge badge-info" style="font-size: 11px;">0 Relay Drops</span>
+                        </div>
+
+                        <div id="googleLogisticsMap" class="logistics-google-map-container" style="height: 480px; width: 100%; min-height: 420px; background: #f1f5f9; position: relative;"></div>
                     </div>
 
                     <!-- Right: Sequenced Waypoint Checklist -->
@@ -1102,6 +1123,33 @@
                         </p>
                         <div class="itinerary-list" id="itineraryStopsList">
                             <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gemini AI Dispatch & Route Advisory Card -->
+                <div class="gemini-route-advisory-card" id="geminiRouteAdvisoryCard" style="margin-top: 1.5rem; background: linear-gradient(135deg, rgba(26, 115, 232, 0.05), rgba(52, 168, 83, 0.05)); border: 1px solid rgba(26, 115, 232, 0.2); border-radius: 12px; padding: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.3rem;">🤖</span>
+                            <h4 style="margin: 0; font-size: 1.1rem; color: #1e293b;">Google Gemini AI Dispatch & Route Advisory</h4>
+                            <span class="badge" style="background: linear-gradient(135deg, #1a73e8, #4285f4); color: white; border-radius: 20px; font-size: 11px; padding: 3px 9px;">Live AI Telemetry</span>
+                        </div>
+                        <span class="badge badge-success" id="geminiAdvisoryEfficiencyBadge" style="font-size: 0.85rem; padding: 4px 10px;">98.5% Optimal Green Corridor</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 0.75rem;">
+                        <div style="background: white; padding: 0.9rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">🧠 Route Strategy & Sequencing</div>
+                            <div id="geminiDispatchStrategy" style="font-size: 13px; color: #1e293b; line-height: 1.45;">Click "Find Best Route" to generate AI dispatch strategy.</div>
+                        </div>
+                        <div style="background: white; padding: 0.9rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #ef4444; margin-bottom: 4px;">🚨 Perishable Cargo & Cold-Chain Priority</div>
+                            <div id="geminiPerishablePriority" style="font-size: 13px; color: #1e293b; line-height: 1.45;">Evaluating cargo perishability across pickup hubs...</div>
+                        </div>
+                        <div style="background: white; padding: 0.9rem; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #059669; margin-bottom: 4px;">⏰ Recommended Departure Window</div>
+                            <div id="geminiDepartureWindow" style="font-size: 13px; color: #1e293b; line-height: 1.45;">--</div>
+                            <div id="geminiTrafficTip" style="font-size: 12px; color: #64748b; margin-top: 4px; font-style: italic;">--</div>
                         </div>
                     </div>
                 </div>
@@ -2456,8 +2504,27 @@
     <div id="toastContainer"></div>
 
     <!-- Scripts -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        (function loadGoogleMaps() {
+            fetch('/api/config/maps-key')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.key) {
+                        var script = document.createElement('script');
+                        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(data.key) + '&libraries=places';
+                        script.async = true;
+                        script.defer = true;
+                        script.onload = function() {
+                            if (window.LogisticsHook && typeof window.LogisticsHook.initMap === 'function') {
+                                window.LogisticsHook.initMap();
+                            }
+                        };
+                        document.head.appendChild(script);
+                    }
+                })
+                .catch(function(err) { console.warn('Google Maps loader note:', err); });
+        })();
+    </script>
     <script src="js/i18n.js?v=3.1"></script>
     <script src="js/api.js?v=3.1"></script>
     <script src="js/map.js?v=3.1"></script>
