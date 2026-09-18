@@ -55,63 +55,49 @@ const LogisticsHook = {
     },
 
     /**
-     * Initialize Google Maps on the Logistics Panel
+     * Initialize OpenStreetMap Leaflet Map on the Logistics Panel
      */
     initMap() {
-        const mapContainer = document.getElementById("googleLogisticsMap") || document.getElementById("logisticsRouteMap");
+        const mapContainer = document.getElementById("logisticsRouteMap") || document.getElementById("googleLogisticsMap");
         if (!mapContainer) return;
 
-        if (this.map && window.google && window.google.maps) {
-            google.maps.event.trigger(this.map, "resize");
+        if (this.map) {
+            setTimeout(() => {
+                if (typeof this.map.invalidateSize === "function") {
+                    this.map.invalidateSize();
+                }
+            }, 250);
             return;
         }
 
-        if (window.google && window.google.maps) {
-            this.map = new google.maps.Map(mapContainer, {
-                center: { lat: 13.0400, lng: 80.1500 },
-                zoom: 10,
-                mapTypeId: google.maps.MapTypeId.ROADMAP,
-                fullscreenControl: true,
-                mapTypeControl: true,
-                streetViewControl: false
-            });
-            this.infoWindow = new google.maps.InfoWindow();
-            this.isInitialized = true;
-
-            // Initialize Places Autocomplete if search input present
-            const searchInput = document.getElementById("googleDeliverySearchInput");
-            if (searchInput && google.maps.places && !searchInput.dataset.acBound) {
-                searchInput.dataset.acBound = "true";
-                try {
-                    const autocomplete = new google.maps.places.Autocomplete(searchInput, {
-                        componentRestrictions: { country: "in" }
-                    });
-                    autocomplete.addListener("place_changed", () => {
-                        const place = autocomplete.getPlace();
-                        if (place && place.geometry && place.geometry.location) {
-                            const lat = place.geometry.location.lat();
-                            const lng = place.geometry.location.lng();
-                            this.plotSearchResult(lat, lng, place.name || place.formatted_address);
-                        }
-                    });
-                } catch (e) {
-                    console.warn("Places autocomplete setup note:", e);
-                }
-            }
-        } else {
+        if (typeof L === "undefined") {
             mapContainer.innerHTML = `
                 <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#64748b; font-size:14px; gap:8px;">
-                    <span class="spinner-border text-primary"></span>
-                    <span>Connecting to Google Maps Logistics Engine...</span>
+                    <span class="spinner-border text-success"></span>
+                    <span>Connecting to OpenStreetMap Logistics Engine...</span>
                 </div>
             `;
-            setTimeout(() => {
-                if (window.google && window.google.maps) {
-                    this.initMap();
-                }
-            }, 1000);
+            setTimeout(() => this.initMap(), 400);
             return;
         }
+
+        // Initialize Leaflet Map centered on South India / Chennai Delta corridor by default
+        this.map = L.map(mapContainer, {
+            center: [13.0400, 80.1500],
+            zoom: 10,
+            scrollWheelZoom: true
+        });
+
+        // OpenStreetMap Open-Source Tile Layer (Standard OSM Carto)
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors | KisanSetu Logistics Engine'
+        }).addTo(this.map);
+
+        this.markersLayer = L.layerGroup().addTo(this.map);
+        this.routesLayer = L.layerGroup().addTo(this.map);
+        this.navigationLayer = L.layerGroup().addTo(this.map);
+        this.isInitialized = true;
 
         const corridorSelect = document.getElementById("logisticsCorridorSelect");
         if (corridorSelect && !corridorSelect.dataset.bound) {
@@ -475,8 +461,8 @@ const LogisticsHook = {
                             ✋ Accept Order
                         </button>
                         <button type="button" class="btn btn-xs btn-outline-success font-weight-bold" 
-                            onclick='LogisticsHook.navigateLiveGPS(${JSON.stringify(o).replace(/'/g, "&#39;")}, "pickup")' title="Preview Turn-by-Turn GPS">
-                            🧭 Preview GPS
+                            onclick='LogisticsHook.navigateLiveGPS(${JSON.stringify(o).replace(/'/g, "&#39;")}, "pickup")' title="Navigate to Farm Gate in Google Maps">
+                            🧭 Navigate (Google Maps)
                         </button>
                     </div>
                 `;
@@ -567,8 +553,8 @@ const LogisticsHook = {
                             ✋ Accept Delivery
                         </button>
                         <button type="button" class="btn btn-xs btn-outline-success font-weight-bold" 
-                            onclick='LogisticsHook.navigateLiveGPS(${JSON.stringify(o).replace(/'/g, "&#39;")}, "delivery")' title="Preview GPS Route">
-                            🧭 Preview GPS
+                            onclick='LogisticsHook.navigateLiveGPS(${JSON.stringify(o).replace(/'/g, "&#39;")}, "delivery")' title="Navigate to Customer Doorstep in Google Maps">
+                            🧭 Navigate (Google Maps)
                         </button>
                     </div>
                 `;
@@ -1109,219 +1095,199 @@ const LogisticsHook = {
     },
 
     renderMapRoutes(waypoints, trafficSegments, relayDropoffs = []) {
-        if (!this.map || !window.google || !window.google.maps) return;
+        if (!this.map || typeof L === "undefined") return;
 
         // Clear existing markers & polylines
-        if (this.markersLayer && Array.isArray(this.markersLayer)) {
-            this.markersLayer.forEach(m => m.setMap(null));
+        if (this.markersLayer && typeof this.markersLayer.clearLayers === "function") {
+            this.markersLayer.clearLayers();
         }
-        this.markersLayer = [];
-
-        if (this.routesLayer && Array.isArray(this.routesLayer)) {
-            this.routesLayer.forEach(p => p.setMap(null));
+        if (this.routesLayer && typeof this.routesLayer.clearLayers === "function") {
+            this.routesLayer.clearLayers();
         }
-        this.routesLayer = [];
 
-        const bounds = new google.maps.LatLngBounds();
+        const latLngBounds = [];
 
-        // 1. Draw Traffic Polylines on Google Map
+        // 1. Draw Real OpenStreetMap Road Geometry Polyline if available from OSRM
+        const osmGeom = (this.currentRouteData && this.currentRouteData.osm_route_geometry) || [];
+        if (osmGeom && osmGeom.length > 1) {
+            // High-contrast casing outline
+            L.polyline(osmGeom, {
+                color: "#0f172a",
+                weight: 7,
+                opacity: 0.85,
+                lineCap: "round",
+                lineJoin: "round"
+            }).addTo(this.routesLayer);
+
+            // Active green corridor
+            L.polyline(osmGeom, {
+                color: "#10b981",
+                weight: 4,
+                opacity: 0.95,
+                lineCap: "round",
+                lineJoin: "round"
+            }).addTo(this.routesLayer);
+
+            osmGeom.forEach(pt => latLngBounds.push(pt));
+        }
+
+        // 2. Draw Traffic / Corridor Segment Polylines
         if (trafficSegments && trafficSegments.length > 0) {
             trafficSegments.forEach((seg) => {
-                const p1 = { lat: seg.from_coords[0], lng: seg.from_coords[1] };
-                const p2 = { lat: seg.to_coords[0], lng: seg.to_coords[1] };
-                bounds.extend(p1);
-                bounds.extend(p2);
+                const p1 = [seg.from_coords[0], seg.from_coords[1]];
+                const p2 = [seg.to_coords[0], seg.to_coords[1]];
+                latLngBounds.push(p1);
+                latLngBounds.push(p2);
 
-                const midLat = (p1.lat + p2.lat) / 2 + (Math.sin(p1.lat * 10) * 0.006);
-                const midLng = (p1.lng + p2.lng) / 2 + (Math.cos(p2.lng * 10) * 0.006);
-                const pathCoords = [p1, { lat: midLat, lng: midLng }, p2];
+                const midLat = (p1[0] + p2[0]) / 2 + (Math.sin(p1[0] * 10) * 0.005);
+                const midLng = (p1[1] + p2[1]) / 2 + (Math.cos(p2[1] * 10) * 0.005);
+                const pathCoords = [p1, [midLat, midLng], p2];
 
-                // Outline polyline
-                const outlinePoly = new google.maps.Polyline({
-                    path: pathCoords,
-                    geodesic: true,
-                    strokeColor: "#ffffff",
-                    strokeOpacity: 0.9,
-                    strokeWeight: 8,
-                    map: this.map
-                });
-                this.routesLayer.push(outlinePoly);
+                const trafficLine = L.polyline(pathCoords, {
+                    color: seg.color || "#10b981",
+                    weight: (osmGeom.length > 1 ? 4 : 5),
+                    opacity: (osmGeom.length > 1 ? 0.7 : 0.95),
+                    dashArray: (osmGeom.length > 1 ? "4, 6" : null),
+                    lineCap: "round",
+                    lineJoin: "round"
+                }).addTo(this.routesLayer);
 
-                // Traffic colored polyline
-                const trafficPoly = new google.maps.Polyline({
-                    path: pathCoords,
-                    geodesic: true,
-                    strokeColor: seg.color || "#10b981",
-                    strokeOpacity: 0.95,
-                    strokeWeight: 5,
-                    map: this.map
-                });
-                this.routesLayer.push(trafficPoly);
+                const gmapsLegUrl = `https://www.google.com/maps/dir/?api=1&origin=${p1[0]},${p1[1]}&destination=${p2[0]},${p2[1]}&travelmode=driving&dir_action=navigate`;
 
-                const gmapsLegUrl = `https://www.google.com/maps/dir/?api=1&origin=${p1.lat},${p1.lng}&destination=${p2.lat},${p2.lng}&travelmode=driving`;
-
-                trafficPoly.addListener("click", (e) => {
-                    if (this.infoWindow) {
-                        this.infoWindow.setContent(`
-                            <div style="font-size: 13px; min-width: 220px; font-family: Inter, sans-serif;">
-                                <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">🛣️ Route Leg: ${seg.from_name} &rarr; ${seg.to_name}</div>
-                                <div>Distance: <strong>${seg.distance_km} km</strong></div>
-                                <div>Estimated Time: <strong>${seg.travel_mins} mins</strong></div>
-                                <div>Traffic Flow: <strong style="color: ${seg.color}">${seg.traffic_level}</strong> (${seg.traffic_multiplier}x penalty)</div>
-                                <div style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
-                                    <a href="${gmapsLegUrl}" target="_blank" style="color: #1a73e8; font-weight: 600; text-decoration: none;">
-                                        🧭 Open Leg in Google Maps
-                                    </a>
-                                </div>
-                            </div>
-                        `);
-                        this.infoWindow.setPosition(e.latLng);
-                        this.infoWindow.open(this.map);
-                    }
-                });
+                trafficLine.bindPopup(`
+                    <div style="font-size: 13px; min-width: 220px; font-family: Inter, sans-serif;">
+                        <div style="font-weight: 700; color: #1e293b; margin-bottom: 4px;">🛣️ Route Leg: ${seg.from_name} &rarr; ${seg.to_name}</div>
+                        <div>Distance: <strong>${seg.distance_km} km</strong> (OpenStreetMap Road)</div>
+                        <div>Estimated Time: <strong>${seg.travel_mins} mins</strong></div>
+                        <div>Traffic Flow: <strong style="color: ${seg.color}">${seg.traffic_level}</strong> (${seg.traffic_multiplier}x penalty)</div>
+                        <div style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+                            <a href="${gmapsLegUrl}" target="_blank" class="btn btn-xs btn-primary font-weight-bold" style="color: white !important; text-decoration: none; display: block; text-align: center; padding: 4px 8px; border-radius: 4px;">
+                                🧭 Navigate Leg in Google Maps
+                            </a>
+                        </div>
+                    </div>
+                `);
             });
         }
 
-        // 2. Add Stop Markers on Google Map
+        // 3. Add Stop Markers on OpenStreetMap
         waypoints.forEach((wp) => {
-            const pos = { lat: wp.lat, lng: wp.lng };
-            bounds.extend(pos);
+            latLngBounds.push([wp.lat, wp.lng]);
 
             const isDepot = wp.type === "depot";
             const isHub = wp.type === "hub_pickup";
             const isDelivery = wp.type === "customer_delivery";
 
-            let pinColor = "#0284c7"; // Depot Blue
-            let labelChar = "D";
+            let bgClass = "marker-depot";
+            let pinColor = "#0284c7";
+            let iconGlyph = "🏢";
             let typeTitle = "Central Fleet Origin Depot";
 
             if (isHub) {
-                pinColor = "#eab308"; // Hub Amber
-                labelChar = String(wp.step_number);
+                bgClass = "marker-hub";
+                pinColor = "#10b981";
+                iconGlyph = `🌾 ${wp.step_number}`;
                 typeTitle = "Aggregation Hub Pickup";
             } else if (isDelivery) {
-                pinColor = "#16a34a"; // Delivery Green
-                labelChar = String(wp.step_number);
+                bgClass = "marker-delivery";
+                pinColor = "#f97316";
+                iconGlyph = `📦 ${wp.step_number}`;
                 typeTitle = "Customer Delivery Drop";
             }
 
-            const marker = new google.maps.Marker({
-                position: pos,
-                map: this.map,
-                title: `${typeTitle}: ${wp.name}`,
-                label: {
-                    text: labelChar,
-                    color: "#ffffff",
-                    fontWeight: "bold",
-                    fontSize: "12px"
-                },
-                icon: {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    scale: 14,
-                    fillColor: pinColor,
-                    fillOpacity: 1,
-                    strokeColor: "#ffffff",
-                    strokeWeight: 2
-                }
+            const customIcon = L.divIcon({
+                className: "custom-leaflet-marker",
+                html: `
+                    <div class="route-marker-pin ${bgClass}" style="box-shadow: 0 3px 8px rgba(0,0,0,0.3);">
+                        <span class="marker-text" style="font-size: 0.72rem; font-weight: 800; color: #fff;">${iconGlyph}</span>
+                    </div>
+                `,
+                iconSize: [36, 36],
+                iconAnchor: [18, 36],
+                popupAnchor: [0, -36]
             });
-            this.markersLayer.push(marker);
 
-            const gmapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${wp.lat},${wp.lng}&travelmode=driving`;
+            const marker = L.marker([wp.lat, wp.lng], { icon: customIcon }).addTo(this.markersLayer);
 
-            marker.addListener("click", () => {
-                if (this.infoWindow) {
-                    this.infoWindow.setContent(`
-                        <div style="font-size: 13px; min-width: 230px; font-family: Inter, sans-serif;">
-                            <div style="font-size: 11px; font-weight: 800; color: ${pinColor}; text-transform: uppercase; margin-bottom: 2px;">
-                                ${typeTitle} (Stop #${wp.step_number})
-                            </div>
-                            <h4 style="margin: 2px 0 6px; font-size: 14px; color: #1e293b;">${wp.name}</h4>
-                            ${wp.cargo ? `<div style="font-size: 12px; color: #334155; margin-bottom: 4px;"><strong>Cargo:</strong> ${wp.cargo}</div>` : ''}
-                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 4px;">
-                                <span>Distance: <strong>${wp.leg_distance_km} km</strong></span>
-                                <span>ETA: <strong>+${wp.eta_mins} mins</strong></span>
-                            </div>
-                            <div style="font-size: 12px; color: #64748b;">
-                                Traffic: <strong style="color: ${wp.traffic_color}">${wp.traffic_level}</strong>
-                            </div>
-                            <div style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
-                                <a href="${gmapsNavUrl}" target="_blank" style="color: #1a73e8; font-weight: 700; text-decoration: none;">
-                                    🗺️ Turn-by-Turn GPS in Google Maps
-                                </a>
-                            </div>
-                        </div>
-                    `);
-                    this.infoWindow.open(this.map, marker);
-                }
-            });
+            const gmapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${wp.lat},${wp.lng}&travelmode=driving&dir_action=navigate`;
+            const gmapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${wp.lat},${wp.lng}`;
+
+            marker.bindPopup(`
+                <div class="leaflet-route-popup" style="font-size: 13px; min-width: 230px; font-family: Inter, sans-serif;">
+                    <div class="popup-badge ${bgClass}" style="display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; color: #fff; margin-bottom: 4px;">
+                        ${typeTitle} (Stop #${wp.step_number})
+                    </div>
+                    <h4 class="popup-title" style="margin: 2px 0 6px; font-size: 14px; color: #1e293b;">${wp.name}</h4>
+                    ${wp.cargo ? `<div class="popup-cargo" style="background: #f8fafc; border-left: 3px solid ${pinColor}; padding: 4px 8px; border-radius: 3px; margin-bottom: 6px; font-size: 12px;"><strong>Cargo:</strong> ${wp.cargo}</div>` : ''}
+                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 4px;">
+                        <span>Leg Dist: <strong>${wp.leg_distance_km} km</strong> (OSM)</span>
+                        <span>ETA: <strong>+${wp.eta_mins} mins</strong></span>
+                    </div>
+                    <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
+                        Traffic: <strong style="color: ${wp.traffic_color}">${wp.traffic_level}</strong>
+                    </div>
+                    <div style="border-top: 1px solid #e2e8f0; padding-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+                        <a href="${gmapsNavUrl}" target="_blank" class="btn btn-xs btn-primary font-weight-bold" style="color: white !important; text-decoration: none; text-align: center; padding: 6px 10px; border-radius: 4px; display: block;">
+                            🧭 Navigate with Google Maps
+                        </a>
+                        <a href="${gmapsSearchUrl}" target="_blank" style="font-size: 11px; color: #64748b; text-align: center; text-decoration: none; margin-top: 2px;">
+                            📍 View Location in Google Maps (${wp.lat.toFixed(4)}, ${wp.lng.toFixed(4)})
+                        </a>
+                    </div>
+                </div>
+            `);
         });
 
-        // 3. Mark Out-of-Corridor Relay Dropoffs at designated intermediate transit hubs
+        // 4. Mark Out-of-Corridor Relay Dropoffs at intermediate transit hubs
         if (relayDropoffs && relayDropoffs.length > 0) {
             relayDropoffs.forEach((relay, rIdx) => {
                 const dropHub = relay.designated_drop_hub;
                 if (!dropHub || !dropHub.latitude || !dropHub.longitude) return;
 
-                const relayPos = {
-                    lat: dropHub.latitude + ((rIdx + 1) * 0.003),
-                    lng: dropHub.longitude + ((rIdx + 1) * 0.003)
-                };
-                bounds.extend(relayPos);
+                const rLat = dropHub.latitude + ((rIdx + 1) * 0.003);
+                const rLng = dropHub.longitude + ((rIdx + 1) * 0.003);
+                latLngBounds.push([rLat, rLng]);
 
-                const relayMarker = new google.maps.Marker({
-                    position: relayPos,
-                    map: this.map,
-                    title: `Relay Drop: ${relay.buyer_name}`,
-                    label: {
-                        text: "R",
-                        color: "#ffffff",
-                        fontWeight: "bold",
-                        fontSize: "11px"
-                    },
-                    icon: {
-                        path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
-                        scale: 6,
-                        fillColor: "#9333ea", // Purple
-                        fillOpacity: 1,
-                        strokeColor: "#ffffff",
-                        strokeWeight: 2
-                    }
+                const relayIcon = L.divIcon({
+                    className: "custom-leaflet-marker",
+                    html: `
+                        <div class="route-marker-pin" style="background: #9333ea; box-shadow: 0 3px 8px rgba(0,0,0,0.3);">
+                            <span class="marker-text" style="font-size: 0.72rem; font-weight: 800; color: #fff;">📦 R</span>
+                        </div>
+                    `,
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 36],
+                    popupAnchor: [0, -36]
                 });
-                this.markersLayer.push(relayMarker);
 
-                const gmapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${dropHub.latitude},${dropHub.longitude}&travelmode=driving`;
+                const relayMarker = L.marker([rLat, rLng], { icon: relayIcon }).addTo(this.markersLayer);
+                const gmapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${dropHub.latitude},${dropHub.longitude}&travelmode=driving&dir_action=navigate`;
 
-                relayMarker.addListener("click", () => {
-                    if (this.infoWindow) {
-                        this.infoWindow.setContent(`
-                            <div style="font-size: 13px; min-width: 250px; font-family: Inter, sans-serif;">
-                                <span style="background: #9333ea; color: white; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;">
-                                    📦 INTERMEDIATE RELAY DROP
-                                </span>
-                                <h4 style="margin: 6px 0 4px; font-size: 14px; color: #1e293b;">${dropHub.hub_name}</h4>
-                                <div style="font-size: 12px; color: #475569; margin-bottom: 4px;">
-                                    <strong>Destined Buyer:</strong> ${relay.buyer_name} (📍 ${relay.address})
-                                </div>
-                                <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
-                                    <strong>Cargo:</strong> ${relay.cargo || 'Produce'} • <strong>Off-Corridor:</strong> ${relay.distance_from_corridor_km} km away
-                                </div>
-                                <div style="font-size: 11px; color: #9333ea; font-weight: 600; margin-bottom: 6px;">
-                                    💡 Order dropped at ${dropHub.hub_name} on active corridor for next-leg regional delivery relay.
-                                </div>
-                                <div style="border-top: 1px solid #e2e8f0; padding-top: 6px;">
-                                    <a href="${gmapsNavUrl}" target="_blank" style="color: #1a73e8; font-weight: 700; text-decoration: none;">
-                                        🗺️ Navigate to Relay Hub in Google Maps
-                                    </a>
-                                </div>
-                            </div>
-                        `);
-                        this.infoWindow.open(this.map, relayMarker);
-                    }
-                });
+                relayMarker.bindPopup(`
+                    <div style="font-size: 13px; min-width: 240px; font-family: Inter, sans-serif;">
+                        <span style="background: #9333ea; color: white; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;">
+                            📦 INTERMEDIATE RELAY DROP
+                        </span>
+                        <h4 style="margin: 6px 0 4px; font-size: 14px; color: #1e293b;">${dropHub.hub_name}</h4>
+                        <div style="font-size: 12px; color: #475569; margin-bottom: 4px;">
+                            <strong>Destined Buyer:</strong> ${relay.buyer_name} (📍 ${relay.address})
+                        </div>
+                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
+                            <strong>Cargo:</strong> ${relay.cargo || 'Produce'} • <strong>Detour:</strong> ${relay.distance_from_corridor_km} km
+                        </div>
+                        <div style="margin-top: 8px; border-top: 1px solid #e2e8f0; padding-top: 6px;">
+                            <a href="${gmapsNavUrl}" target="_blank" class="btn btn-xs btn-primary font-weight-bold" style="color: white !important; text-decoration: none; display: block; text-align: center; padding: 6px 8px; border-radius: 4px;">
+                                🧭 Navigate to Relay Hub in Google Maps
+                            </a>
+                        </div>
+                    </div>
+                `);
             });
         }
 
-        this.map.fitBounds(bounds);
+        if (latLngBounds.length > 0) {
+            this.map.fitBounds(latLngBounds, { padding: [40, 40] });
+        }
     },
 
     renderItinerary(waypoints, relayDropoffs = []) {
@@ -1424,9 +1390,8 @@ const LogisticsHook = {
 
     flyToStop(lat, lng) {
         if (!this.map) return;
-        if (window.google && window.google.maps && typeof this.map.panTo === "function") {
-            this.map.panTo({ lat, lng });
-            this.map.setZoom(14);
+        if (typeof this.map.setView === "function") {
+            this.map.setView([lat, lng], 14, { animate: true });
         }
     },
 
@@ -1441,12 +1406,18 @@ const LogisticsHook = {
             const origin = `${wps[0].lat},${wps[0].lng}`;
             const dest = `${wps[wps.length - 1].lat},${wps[wps.length - 1].lng}`;
             const middle = wps.slice(1, -1).map(w => `${w.lat},${w.lng}`).join("|");
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&waypoints=${middle}&travelmode=driving`;
+            let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&travelmode=driving&dir_action=navigate`;
+            if (middle) {
+                url += `&waypoints=${encodeURIComponent(middle)}`;
+            }
+            if (window.showToast) {
+                window.showToast("🧭 Redirecting to Google Maps for turn-by-turn navigation...", "info");
+            }
             window.open(url, "_blank");
             return;
         }
 
-        if (window.showToast) window.showToast("Calculating route first...", "info");
+        if (window.showToast) window.showToast("Calculating OpenStreetMap route first...", "info");
         this.fetchAndRenderRoute().then(() => this.openGoogleMapsDirections());
     },
 
@@ -1454,14 +1425,22 @@ const LogisticsHook = {
         this.openGoogleMapsDirections();
     },
 
+    openGoogleMapsToCoords(lat, lng, label = "Destination") {
+        if (window.showToast) {
+            window.showToast(`🧭 Opening Google Maps for ${label}...`, "info");
+        }
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&dir_action=navigate`;
+        window.open(url, "_blank");
+    },
+
     navigateFromVerificationModal() {
         this.navigateLiveGPSCurrent();
     },
 
     /**
-     * Swiggy/Zomato style Live GPS Driving Navigation:
-     * Takes delivery agent's live GPS device location and initiates turn-by-turn
-     * Google Maps navigation directly to the farm gate (pickup) or customer doorstep (delivery).
+     * Turn-by-turn Driving Navigation:
+     * Redirects the delivery agent directly to Google Maps with the destination pre-populated
+     * (farm gate for pickup, or consumer doorstep for delivery).
      */
     navigateLiveGPSCurrent() {
         if (!this.currentVerifyingOrder) {
@@ -1483,9 +1462,9 @@ const LogisticsHook = {
         const isPickup = targetType === "pickup" || (targetType === "auto" && order.status === "ordered");
 
         if (isPickup) {
-            destLat = order.farmer_lat || 12.9352;
-            destLng = order.farmer_lng || 80.1878;
-            destLabel = `🌾 Farm Gate: ${order.farmer_name || 'Farmer'} (${order.farmer_state || 'Farm Hub'})`;
+            destLat = order.farmer_lat || 12.8342;
+            destLng = order.farmer_lng || 79.7036;
+            destLabel = `🌾 Farm Gate: ${order.farmer_name || 'Farmer'} (${order.farmer_state || order.farmer_district || 'Farm Hub'})`;
         } else {
             if (order.buyer_lat && order.buyer_lng) {
                 destLat = order.buyer_lat;
@@ -1499,49 +1478,16 @@ const LogisticsHook = {
         }
 
         if (window.showToast) {
-            window.showToast(`🧭 Opening Live GPS Navigation to ${destLabel}...`, "info");
+            window.showToast(`🧭 Redirecting to Google Maps for ${destLabel}...`, "info");
         }
 
-        // Swiggy-style navigation URL using Google Maps driving mode & dir_action=navigate
-        // If navigator.geolocation is available, we query current GPS coordinates.
-        // If GPS is unavailable/slow, Google Maps automatically uses the device's live GPS origin when origin is omitted.
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const uLat = pos.coords.latitude;
-                    const uLng = pos.coords.longitude;
-                    const navUrl = `https://www.google.com/maps/dir/?api=1&origin=${uLat},${uLng}&destination=${destLat},${destLng}&travelmode=driving&dir_action=navigate`;
-                    window.open(navUrl, "_blank");
-                },
-                (err) => {
-                    const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving&dir_action=navigate`;
-                    window.open(navUrl, "_blank");
-                },
-                { enableHighAccuracy: true, timeout: 3500 }
-            );
-        } else {
-            const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving&dir_action=navigate`;
-            window.open(navUrl, "_blank");
-        }
+        // Swiggy/Zomato style Google Maps turn-by-turn navigation with destination auto-entered
+        const navUrl = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving&dir_action=navigate`;
+        window.open(navUrl, "_blank");
     },
 
     openDirectOSMNavigation(order) {
-        let buyerLat = order.buyer_lat;
-        let buyerLng = order.buyer_lng;
-        let farmerLat = order.farmer_lat || 12.9352;
-        let farmerLng = order.farmer_lng || 80.1878;
-
-        if (!buyerLat || !buyerLng) {
-            const resolved = this.lookupCoords(order.delivery_location || "Adyar");
-            buyerLat = resolved.lat;
-            buyerLng = resolved.lng;
-        }
-
-        const osmTurnByTurnUrl = `https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=${farmerLat}%2C${farmerLng}%3B${buyerLat}%2C${buyerLng}`;
-        window.open(osmTurnByTurnUrl, "_blank");
-        if (window.showToast) {
-            window.showToast(`Launching OpenStreetMap navigation for Order #${order.order_number}`, "info");
-        }
+        this.navigateLiveGPS(order);
     },
 
     navigateToDelivery(order) {
@@ -1555,8 +1501,8 @@ const LogisticsHook = {
 
         let buyerLat = order.buyer_lat;
         let buyerLng = order.buyer_lng;
-        let farmerLat = order.farmer_lat || 12.9352;
-        let farmerLng = order.farmer_lng || 80.1878;
+        let farmerLat = order.farmer_lat || 12.8342;
+        let farmerLng = order.farmer_lng || 79.7036;
 
         if (!buyerLat || !buyerLng) {
             const resolved = this.lookupCoords(order.delivery_location || "Adyar");
@@ -1565,136 +1511,104 @@ const LogisticsHook = {
         }
 
         setTimeout(() => {
-            if (this.map && window.google && window.google.maps) {
-                google.maps.event.trigger(this.map, "resize");
+            if (this.map && typeof this.map.setView === "function") {
+                if (typeof this.map.invalidateSize === "function") this.map.invalidateSize();
 
                 // Clear previous navigation layer markers/polylines
-                if (this.navigationLayer && Array.isArray(this.navigationLayer)) {
-                    this.navigationLayer.forEach(item => item.setMap(null));
+                if (this.navigationLayer && typeof this.navigationLayer.clearLayers === "function") {
+                    this.navigationLayer.clearLayers();
                 }
-                this.navigationLayer = [];
 
-                const p1 = { lat: farmerLat, lng: farmerLng };
-                const p2 = { lat: buyerLat, lng: buyerLng };
-                const midLat = (farmerLat + buyerLat) / 2 + 0.005;
-                const midLng = (farmerLng + buyerLng) / 2 + 0.005;
-                const pathCoords = [p1, { lat: midLat, lng: midLng }, p2];
+                const p1 = [farmerLat, farmerLng];
+                const p2 = [buyerLat, buyerLng];
 
-                const navPoly = new google.maps.Polyline({
-                    path: pathCoords,
-                    geodesic: true,
-                    strokeColor: "#0284c7",
-                    strokeOpacity: 0.9,
-                    strokeWeight: 5,
-                    map: this.map
-                });
-                this.navigationLayer.push(navPoly);
+                // Polyline on OpenStreetMap
+                L.polyline([p1, p2], {
+                    color: "#0284c7",
+                    weight: 4,
+                    dashArray: "6, 8"
+                }).addTo(this.navigationLayer);
 
-                const farmMarker = new google.maps.Marker({
-                    position: p1,
-                    map: this.map,
-                    title: `🌾 Farm Gate: ${order.farmer_name || 'Farmer'}`,
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: 12,
-                        fillColor: "#eab308",
-                        fillOpacity: 1,
-                        strokeColor: "#ffffff",
-                        strokeWeight: 2
-                    }
-                });
-                this.navigationLayer.push(farmMarker);
+                const farmMarker = L.marker(p1, {
+                    icon: L.divIcon({
+                        className: "custom-leaflet-marker",
+                        html: `<div class="route-marker-pin marker-hub"><span class="marker-text">🌾</span></div>`,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32],
+                        popupAnchor: [0, -32]
+                    })
+                }).addTo(this.navigationLayer);
+                farmMarker.bindPopup(`<strong>🌾 Farm Gate:</strong> ${order.farmer_name || 'Farmer'}`);
 
-                const delMarker = new google.maps.Marker({
-                    position: p2,
-                    map: this.map,
-                    title: `📦 Delivery Doorstep: ${order.buyer_name || 'Customer'}`,
-                    animation: google.maps.Animation.DROP,
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: 14,
-                        fillColor: "#16a34a",
-                        fillOpacity: 1,
-                        strokeColor: "#ffffff",
-                        strokeWeight: 2
-                    }
-                });
-                this.navigationLayer.push(delMarker);
+                const delMarker = L.marker(p2, {
+                    icon: L.divIcon({
+                        className: "custom-leaflet-marker",
+                        html: `<div class="route-marker-pin marker-delivery"><span class="marker-text">📦</span></div>`,
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 36],
+                        popupAnchor: [0, -36]
+                    })
+                }).addTo(this.navigationLayer);
 
-                const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${farmerLat},${farmerLng}&destination=${buyerLat},${buyerLng}&travelmode=driving`;
+                const googleMapsNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${buyerLat},${buyerLng}&travelmode=driving&dir_action=navigate`;
 
-                const infoHtml = `
-                    <div style="font-size: 13px; min-width: 250px; font-family: Inter, sans-serif;">
-                        <span style="background: #16a34a; color: white; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700;">
+                delMarker.bindPopup(`
+                    <div style="font-size: 13px; min-width: 230px; font-family: Inter, sans-serif;">
+                        <span class="popup-badge marker-delivery" style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:700; color:#fff; background:#f97316;">
                             📦 TARGET DELIVERY
                         </span>
-                        <h4 style="margin: 6px 0 4px; font-size: 14px; color: #1e293b;">Consignment #${order.order_number}</h4>
+                        <h4 style="margin: 6px 0 4px; font-size: 14px; color: #1e293b;">Order #${order.order_number}</h4>
                         <div style="font-size: 12px; color: #475569; margin-bottom: 3px;"><strong>Customer:</strong> ${order.buyer_name || 'Consumer'} (📍 ${order.delivery_location})</div>
                         <div style="font-size: 12px; color: #475569; margin-bottom: 6px;"><strong>Load:</strong> ${order.product_name} (${order.quantity} kg)</div>
                         <div style="border-top: 1px solid #e2e8f0; padding-top: 6px;">
-                            <a href="${googleMapsUrl}" target="_blank" style="color: #1a73e8; font-weight: 700; text-decoration: none;">
-                                🗺️ Live Navigation in Google Maps
+                            <a href="${googleMapsNavUrl}" target="_blank" class="btn btn-xs btn-primary font-weight-bold" style="color: white !important; text-decoration: none; display: block; text-align: center; padding: 6px 8px; border-radius: 4px;">
+                                🧭 Start Turn-by-Turn in Google Maps
                             </a>
                         </div>
                     </div>
-                `;
+                `).openPopup();
 
-                if (this.infoWindow) {
-                    this.infoWindow.setContent(infoHtml);
-                    this.infoWindow.open(this.map, delMarker);
-                }
-
-                delMarker.addListener("click", () => {
-                    if (this.infoWindow) {
-                        this.infoWindow.setContent(infoHtml);
-                        this.infoWindow.open(this.map, delMarker);
-                    }
-                });
-
-                const bounds = new google.maps.LatLngBounds();
-                bounds.extend(p1);
-                bounds.extend(p2);
-                this.map.fitBounds(bounds);
+                this.map.fitBounds([p1, p2], { padding: [40, 40] });
             }
 
-            const mapEl = document.getElementById("googleLogisticsMap") || document.getElementById("logisticsRouteMap");
+            const mapEl = document.getElementById("logisticsRouteMap") || document.getElementById("googleLogisticsMap");
             if (mapEl) {
                 mapEl.scrollIntoView({ behavior: "smooth", block: "center" });
             }
         }, 200);
 
         if (window.showToast) {
-            window.showToast(`Navigating to ${order.delivery_location || 'destination'} on Google Maps`, "info");
+            window.showToast(`Navigating to ${order.delivery_location || 'destination'} on OpenStreetMap & Google Maps`, "info");
         }
     },
 
     async searchDeliveryLocation(query) {
         if (!this.map) this.initMap();
 
-        const inputEl = document.getElementById("googleDeliverySearchInput") || document.getElementById("osmDeliverySearchInput");
+        const inputEl = document.getElementById("logisticsDeliverySearchInput") || document.getElementById("googleDeliverySearchInput") || document.getElementById("osmDeliverySearchInput");
         const q = (query || (inputEl ? inputEl.value : "")).trim();
         if (!q) {
-            if (window.showToast) window.showToast("Please enter a delivery location or landmark to search.", "warning");
+            if (window.showToast) window.showToast("Please enter a location or landmark to search on OpenStreetMap.", "warning");
             return;
         }
 
-        if (window.showToast) window.showToast(`Searching '${q}' on Google Maps...`, "info");
+        if (window.showToast) window.showToast(`Searching '${q}' on OpenStreetMap...`, "info");
 
-        if (window.google && window.google.maps && window.google.maps.Geocoder) {
-            try {
-                const geocoder = new google.maps.Geocoder();
-                geocoder.geocode({ address: q, componentRestrictions: { country: "IN" } }, (results, status) => {
-                    if (status === "OK" && results && results[0]) {
-                        const loc = results[0].geometry.location;
-                        this.plotSearchResult(loc.lat(), loc.lng(), results[0].formatted_address);
-                        return;
-                    }
-                    this.fallbackLocalSearch(q);
-                });
-                return;
-            } catch (e) {
-                console.warn("Geocoder error, falling back to local lookup:", e);
+        try {
+            const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&limit=1&q=${encodeURIComponent(q)}`;
+            const res = await fetch(osmUrl, {
+                headers: { "Accept": "application/json" }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const item = data[0];
+                    this.plotSearchResult(parseFloat(item.lat), parseFloat(item.lon), item.display_name);
+                    return;
+                }
             }
+        } catch (e) {
+            console.warn("OpenStreetMap Nominatim search error, falling back to local dictionary:", e);
         }
 
         this.fallbackLocalSearch(q);
@@ -1708,56 +1622,48 @@ const LogisticsHook = {
     plotSearchResult(lat, lng, label) {
         if (!this.map) return;
 
-        if (this.navigationLayer && Array.isArray(this.navigationLayer)) {
-            this.navigationLayer.forEach(m => m.setMap(null));
+        if (this.navigationLayer && typeof this.navigationLayer.clearLayers === "function") {
+            this.navigationLayer.clearLayers();
         }
-        this.navigationLayer = [];
 
-        if (window.google && window.google.maps && typeof this.map.panTo === "function") {
-            const pos = { lat, lng };
-            this.map.panTo(pos);
-            this.map.setZoom(14);
+        if (typeof this.map.setView === "function") {
+            this.map.setView([lat, lng], 14, { animate: true });
 
-            const searchMarker = new google.maps.Marker({
-                position: pos,
-                map: this.map,
-                title: label,
-                animation: google.maps.Animation.DROP,
-                icon: {
-                    path: google.maps.SymbolPath.CIRCLE,
-                    scale: 12,
-                    fillColor: "#1a73e8",
-                    fillOpacity: 1,
-                    strokeColor: "#ffffff",
-                    strokeWeight: 3
-                }
-            });
-            this.navigationLayer.push(searchMarker);
-
-            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
-
-            if (this.infoWindow) {
-                this.infoWindow.setContent(`
-                    <div style="font-size: 13px; min-width: 220px; font-family: Inter, sans-serif;">
-                        <span style="background: #1a73e8; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">
-                            📍 GOOGLE MAPS PIN
-                        </span>
-                        <h4 style="margin: 6px 0 4px; font-size: 14px; color: #1e293b;">${label}</h4>
-                        <div style="font-size: 12px; color: #64748b; margin-bottom: 6px;">
-                            GPS: <strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong>
+            const searchMarker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: "custom-leaflet-marker",
+                    html: `
+                        <div class="route-marker-pin" style="background: #10b981; box-shadow: 0 3px 8px rgba(0,0,0,0.3);">
+                            <span class="marker-text" style="font-size: 0.72rem; font-weight: 800; color: #fff;">📍</span>
                         </div>
-                        <div style="border-top: 1px solid #e2e8f0; padding-top: 6px;">
-                            <a href="${gmapsUrl}" target="_blank" style="color: #1a73e8; font-weight: 700; text-decoration: none;">
-                                🧭 Turn-by-Turn in Google Maps
-                            </a>
-                        </div>
+                    `,
+                    iconSize: [36, 36],
+                    iconAnchor: [18, 36],
+                    popupAnchor: [0, -36]
+                })
+            }).addTo(this.navigationLayer);
+
+            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving&dir_action=navigate`;
+
+            searchMarker.bindPopup(`
+                <div style="font-size: 13px; min-width: 220px; font-family: Inter, sans-serif;">
+                    <span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">
+                        📍 OPENSTREETMAP PIN
+                    </span>
+                    <h4 style="margin: 6px 0 4px; font-size: 14px; color: #1e293b;">${label}</h4>
+                    <div style="font-size: 12px; color: #64748b; margin-bottom: 6px;">
+                        GPS: <strong>${lat.toFixed(4)}, ${lng.toFixed(4)}</strong>
                     </div>
-                `);
-                this.infoWindow.open(this.map, searchMarker);
-            }
+                    <div style="border-top: 1px solid #e2e8f0; padding-top: 6px;">
+                        <a href="${gmapsUrl}" target="_blank" class="btn btn-xs btn-primary font-weight-bold" style="color: white !important; text-decoration: none; display: block; text-align: center; padding: 6px 8px; border-radius: 4px;">
+                            🧭 Navigate in Google Maps
+                        </a>
+                    </div>
+                </div>
+            `).openPopup();
         }
 
-        if (window.showToast) window.showToast(`Located '${label.split(',')[0]}' on Google Maps`, "success");
+        if (window.showToast) window.showToast(`Located '${label.split(',')[0]}' on OpenStreetMap`, "success");
     },
 
     lookupCoords(locationStr) {
@@ -1782,10 +1688,10 @@ const LogisticsHook = {
 
         const buyerLat = order.buyer_lat || 13.0012;
         const buyerLng = order.buyer_lng || 80.2565;
-        const farmerLat = order.farmer_lat || 12.9352;
-        const farmerLng = order.farmer_lng || 80.1878;
+        const farmerLat = order.farmer_lat || 12.8342;
+        const farmerLng = order.farmer_lng || 79.7036;
 
-        const googleTurnByTurnUrl = `https://www.google.com/maps/dir/?api=1&origin=${farmerLat},${farmerLng}&destination=${buyerLat},${buyerLng}&travelmode=driving`;
+        const googleTurnByTurnUrl = `https://www.google.com/maps/dir/?api=1&origin=${farmerLat},${farmerLng}&destination=${buyerLat},${buyerLng}&travelmode=driving&dir_action=navigate`;
         const googleInspectUrl = `https://www.google.com/maps/search/?api=1&query=${buyerLat},${buyerLng}`;
 
         let timelineHtml = `
@@ -1801,7 +1707,7 @@ const LogisticsHook = {
 
                 <div class="osm-modal-map-wrapper mt-3">
                     <div class="osm-modal-map-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <span class="small font-weight-bold">🗺️ Google Maps Delivery Route & Telemetry:</span>
+                        <span class="small font-weight-bold">🗺️ OpenStreetMap Route & Live Telemetry:</span>
                         <a href="${googleTurnByTurnUrl}" target="_blank" class="badge badge-success font-weight-bold" style="text-decoration: none; padding: 4px 8px;">
                             🧭 Turn-by-Turn in Google Maps
                         </a>
@@ -1838,8 +1744,8 @@ const LogisticsHook = {
                 <div class="logistics-extensibility-box mt-3">
                     <span class="icon">🤖</span>
                     <div class="desc">
-                        <strong>Google Maps & Gemini AI Routing:</strong>
-                        <span>Consignment route optimized with dynamic road congestion penalty and hub collection precedence. Live telemetry mapped to Google Maps navigation corridors.</span>
+                        <strong>OpenStreetMap & Gemini AI Routing:</strong>
+                        <span>Consignment route calculated with OpenStreetMap road networks and Gemini dispatch strategy. Live driving navigation redirects directly to Google Maps.</span>
                     </div>
                 </div>
 
@@ -1848,7 +1754,7 @@ const LogisticsHook = {
                         🧭 Turn-by-Turn GPS in Google Maps
                     </a>
                     <a href="${googleInspectUrl}" target="_blank" class="btn btn-sm btn-outline-light" style="flex: 1; text-align: center;">
-                        🗺️ View on Google Maps
+                        🗺️ View Destination in Google Maps
                     </a>
                 </div>
             </div>
@@ -1858,49 +1764,50 @@ const LogisticsHook = {
 
         setTimeout(() => {
             const mapDiv = document.getElementById("osmModalMap");
-            if (!mapDiv) return;
+            if (!mapDiv || typeof L === "undefined") return;
 
-            if (window.google && window.google.maps) {
-                try {
-                    const p1 = { lat: farmerLat, lng: farmerLng };
-                    const p2 = { lat: buyerLat, lng: buyerLng };
+            try {
+                this.modalMap = L.map(mapDiv, {
+                    center: [(farmerLat + buyerLat) / 2, (farmerLng + buyerLng) / 2],
+                    zoom: 10,
+                    scrollWheelZoom: false
+                });
 
-                    this.modalMap = new google.maps.Map(mapDiv, {
-                        center: { lat: (farmerLat + buyerLat) / 2, lng: (farmerLng + buyerLng) / 2 },
-                        zoom: 11,
-                        mapTypeId: google.maps.MapTypeId.ROADMAP,
-                        streetViewControl: false,
-                        mapTypeControl: false
-                    });
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    maxZoom: 18,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(this.modalMap);
 
-                    new google.maps.Marker({
-                        position: p1,
-                        map: this.modalMap,
-                        title: `Farm Gate: ${order.farmer_name || 'Farmer'}`
-                    });
+                L.marker([farmerLat, farmerLng], {
+                    icon: L.divIcon({
+                        className: "custom-leaflet-marker",
+                        html: `<div class="route-marker-pin marker-hub"><span class="marker-text">🌾</span></div>`,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32],
+                        popupAnchor: [0, -32]
+                    })
+                }).addTo(this.modalMap).bindPopup(`<strong>🌾 Farm Gate:</strong> ${order.farmer_name || 'Farmer'}`);
 
-                    new google.maps.Marker({
-                        position: p2,
-                        map: this.modalMap,
-                        title: `Delivery: ${order.delivery_location}`
-                    });
+                L.marker([buyerLat, buyerLng], {
+                    icon: L.divIcon({
+                        className: "custom-leaflet-marker",
+                        html: `<div class="route-marker-pin marker-delivery"><span class="marker-text">📦</span></div>`,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 32],
+                        popupAnchor: [0, -32]
+                    })
+                }).addTo(this.modalMap).bindPopup(`<strong>📦 Delivery:</strong> ${order.delivery_location}`);
 
-                    new google.maps.Polyline({
-                        path: [p1, p2],
-                        geodesic: true,
-                        strokeColor: "#0284c7",
-                        strokeOpacity: 0.9,
-                        strokeWeight: 4,
-                        map: this.modalMap
-                    });
+                L.polyline([[farmerLat, farmerLng], [buyerLat, buyerLng]], {
+                    color: "#10b981",
+                    weight: 4,
+                    opacity: 0.9,
+                    dashArray: "6, 8"
+                }).addTo(this.modalMap);
 
-                    const bounds = new google.maps.LatLngBounds();
-                    bounds.extend(p1);
-                    bounds.extend(p2);
-                    this.modalMap.fitBounds(bounds);
-                } catch (err) {
-                    console.warn("[LogisticsHook] Error initializing modal map:", err);
-                }
+                this.modalMap.fitBounds([[farmerLat, farmerLng], [buyerLat, buyerLng]], { padding: [30, 30] });
+            } catch (err) {
+                console.warn("[LogisticsHook] Error initializing modal map:", err);
             }
         }, 200);
     }

@@ -58,6 +58,45 @@ def calculate_haversine_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return round(R * c, 2)
 
+def fetch_osm_route_and_distance(waypoints):
+    """
+    Fetch exact driving road distance, duration, and road coordinates from OpenStreetMap (OSRM).
+    Returns dict with total_distance_km, duration_mins, legs, and geometry [[lat, lng], ...],
+    or None if service is unreachable.
+    """
+    if not waypoints or len(waypoints) < 2:
+        return None
+    try:
+        import urllib.request
+        coords_str = ";".join(f"{float(wp['lng']):.6f},{float(wp['lat']):.6f}" for wp in waypoints)
+        url = f"https://router.project-osrm.org/route/v1/driving/{coords_str}?overview=full&geometries=geojson&steps=false"
+        req = urllib.request.Request(url, headers={"User-Agent": "KisanSetu-AgroLogistics/1.0"})
+        with urllib.request.urlopen(req, timeout=4.0) as res:
+            if res.status == 200:
+                data = json.loads(res.read().decode("utf-8"))
+                if data.get("code") == "Ok" and data.get("routes"):
+                    r = data["routes"][0]
+                    # geometry coordinates in GeoJSON are [lng, lat], convert to [lat, lng] for Leaflet
+                    raw_coords = r.get("geometry", {}).get("coordinates", [])
+                    geom_latlng = [[coord[1], coord[0]] for coord in raw_coords]
+                    legs = []
+                    for leg in r.get("legs", []):
+                        legs.append({
+                            "distance_km": round(leg.get("distance", 0) / 1000.0, 1),
+                            "duration_mins": max(1, int(round(leg.get("duration", 0) / 60.0)))
+                        })
+                    return {
+                        "total_distance_km": round(r.get("distance", 0) / 1000.0, 1),
+                        "duration_mins": max(1, int(round(r.get("duration", 0) / 60.0))),
+                        "geometry": geom_latlng,
+                        "legs": legs,
+                        "powered_by": "OpenStreetMap OSRM"
+                    }
+    except Exception as e:
+        print(f"[Logistics] OpenStreetMap OSRM note (using fallback): {e}")
+    return None
+
+
 def estimate_traffic_multiplier(lat1, lon1, lat2, lon2):
     """
     AI Traffic Congestion Estimation:
@@ -192,10 +231,14 @@ def run_ai_route_optimization(depot, pickup_hubs, delivery_destinations, farmer_
     full_waypoints = collection_route + delivery_route
 
     # Step 4: Calculate Legs, Traffic Segments, Cumulative ETAs & Fuel Metrics
+    # Fetch real road network route and distance from OpenStreetMap (OSRM)
+    osm_route_data = fetch_osm_route_and_distance(full_waypoints)
+
     total_distance = 0.0
     total_time_mins = 0.0
     unoptimized_time_mins = 0.0
     traffic_segments = []
+    osm_legs = (osm_route_data.get("legs", []) if osm_route_data else [])
 
     for i in range(len(full_waypoints)):
         wp = full_waypoints[i]
@@ -208,17 +251,23 @@ def run_ai_route_optimization(depot, pickup_hubs, delivery_destinations, farmer_
             wp["traffic_color"] = "#0284c7"
         else:
             prev = full_waypoints[i - 1]
-            dist = calculate_haversine_distance(prev["lat"], prev["lng"], wp["lat"], wp["lng"])
             mult, level, color = estimate_traffic_multiplier(prev["lat"], prev["lng"], wp["lat"], wp["lng"])
-            
-            leg_mins = (dist / 45.0) * 60.0 * mult
+
+            # If OpenStreetMap OSRM leg distance is available, use actual road distance & time
+            if osm_legs and (i - 1) < len(osm_legs):
+                dist = osm_legs[i - 1].get("distance_km", 0.0)
+                leg_mins = float(osm_legs[i - 1].get("duration_mins", 1)) * mult
+            else:
+                dist = calculate_haversine_distance(prev["lat"], prev["lng"], wp["lat"], wp["lng"])
+                leg_mins = (dist / 45.0) * 60.0 * mult
+
             unopt_leg_mins = (dist / 45.0) * 60.0 * (mult * 1.35)
 
             total_distance += dist
             total_time_mins += leg_mins
             unoptimized_time_mins += unopt_leg_mins
 
-            wp["leg_distance_km"] = dist
+            wp["leg_distance_km"] = round(dist, 1)
             wp["eta_mins"] = int(round(total_time_mins))
             wp["traffic_level"] = level
             wp["traffic_color"] = color
@@ -228,12 +277,21 @@ def run_ai_route_optimization(depot, pickup_hubs, delivery_destinations, farmer_
                 "to_name": wp["name"],
                 "from_coords": [prev["lat"], prev["lng"]],
                 "to_coords": [wp["lat"], wp["lng"]],
-                "distance_km": dist,
+                "distance_km": round(dist, 1),
                 "travel_mins": int(round(leg_mins)),
                 "traffic_multiplier": mult,
                 "traffic_level": level,
                 "color": color
             })
+
+    # Total distance and duration from OpenStreetMap if available
+    if osm_route_data and osm_route_data.get("total_distance_km"):
+        total_distance = osm_route_data["total_distance_km"]
+        osm_route_geometry = osm_route_data.get("geometry", [])
+        distance_engine = "OpenStreetMap OSRM"
+    else:
+        osm_route_geometry = [[wp["lat"], wp["lng"]] for wp in full_waypoints]
+        distance_engine = "Haversine Fallback"
 
     # Metrics Summary
     delay_avoided = max(12, int(round(unoptimized_time_mins - total_time_mins)))
@@ -251,6 +309,7 @@ def run_ai_route_optimization(depot, pickup_hubs, delivery_destinations, farmer_
     return {
         "success": True,
         "algorithm": "Gemini AI Hub-Centric Multi-Stop Delivery with Relay Dropoff",
+        "distance_source": distance_engine,
         "farmer_hub_assignment": farmer_hub_assignment,
         "relay_dropoffs": relay_deliveries,
         "route_summary": {
@@ -262,10 +321,12 @@ def run_ai_route_optimization(depot, pickup_hubs, delivery_destinations, farmer_
             "hubs_collected": len(pickup_hubs),
             "orders_delivered": len(on_corridor_deliveries),
             "relay_orders_diverted": len(relay_deliveries),
-            "optimization_score": "98.4% Efficiency"
+            "optimization_score": "98.4% Efficiency",
+            "distance_engine": distance_engine
         },
         "waypoints": full_waypoints,
         "traffic_segments": traffic_segments,
+        "osm_route_geometry": osm_route_geometry,
         "google_maps_url": google_maps_url
     }
 
@@ -446,12 +507,29 @@ def estimate_dispatch():
     dest_lng = data.get("dest_lng")
     weight_kg = float(data.get("weight_kg", 10))
 
-    distance = calculate_haversine_distance(farm_lat, farm_lng, dest_lat, dest_lng)
+    osm_res = None
+    if farm_lat is not None and farm_lng is not None and dest_lat is not None and dest_lng is not None:
+        try:
+            osm_res = fetch_osm_route_and_distance([
+                {"lat": float(farm_lat), "lng": float(farm_lng)},
+                {"lat": float(dest_lat), "lng": float(dest_lng)}
+            ])
+        except Exception:
+            osm_res = None
+
+    if osm_res and osm_res.get("total_distance_km"):
+        distance = osm_res["total_distance_km"]
+        engine_source = "OpenStreetMap OSRM"
+    else:
+        distance = calculate_haversine_distance(farm_lat, farm_lng, dest_lat, dest_lng)
+        engine_source = "Haversine Fallback"
+
     cost = round(40.0 + (distance * 4.2) + max(0, weight_kg - 20) * 1.5, 2)
 
     return jsonify({
         "success": True,
         "distance_km": distance,
+        "distance_source": engine_source,
         "estimated_freight": cost,
         "estimated_delivery_days": max(1, math.ceil(distance / 250)),
         "cold_chain_monitored": True
