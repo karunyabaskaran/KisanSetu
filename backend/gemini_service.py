@@ -40,13 +40,10 @@ def _get_api_key():
                 pass
     return ""
 
-# Resilient model fallback priority chain
+# Resilient model fallback priority chain (verified active low-latency models)
 CANDIDATE_MODELS = [
     "gemini-3.1-flash-lite",
-    "gemini-3-flash-preview",
-    "gemini-flash-latest",
-    "gemini-2.5-flash-lite",
-    "gemini-3.7-flash"
+    "gemini-3-flash-preview"
 ]
 
 def _extract_json_safely(text: str) -> dict:
@@ -116,6 +113,22 @@ def _extract_json_safely(text: str) -> dict:
         if m:
             data[key] = m.group(1).strip()
 
+    # Chatbot text response extraction
+    reply_match = re.search(r'"reply"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned, re.DOTALL)
+    if reply_match:
+        try:
+            data["reply"] = reply_match.group(1).encode('utf-8').decode('unicode_escape')
+        except Exception:
+            data["reply"] = reply_match.group(1).replace("\\n", "\n").replace('\\"', '"')
+    elif '"reply"' in cleaned:
+        rm = re.search(r'"reply"\s*:\s*"(.*?)"\s*,\s*"(?:intent|referenced)', cleaned, re.DOTALL)
+        if rm:
+            data["reply"] = rm.group(1).replace("\\n", "\n").replace('\\"', '"')
+
+    intent_match = re.search(r'"intent"\s*:\s*"([^"]+)"', cleaned)
+    if intent_match:
+        data["intent"] = intent_match.group(1).strip()
+
     if data:
         return data
 
@@ -158,7 +171,7 @@ def _call_gemini(prompt: str, system_instruction: str = None) -> dict:
             method="POST"
         )
         try:
-            with urllib.request.urlopen(req, context=ctx, timeout=7) as response:
+            with urllib.request.urlopen(req, context=ctx, timeout=12) as response:
                 resp_json = json.loads(response.read().decode("utf-8"))
                 candidates = resp_json.get("candidates", [])
                 if candidates:
@@ -457,7 +470,12 @@ def get_gemini_consumer_chat_reply(
         "You provide warm, polite, highly helpful, and accurate answers in markdown format. "
         "Always rely strictly on the provided real-time 'MARKETPLACE_INVENTORY' and 'CONSUMER_ORDERS' when answering specific queries. "
         "When asked about orders, check the customer's orders and clearly report the order number, item, status, and total. "
-        "When asked about available produce or prices, recommend matching items from the marketplace with farmer locations and prices. "
+        "When asked about the price or availability of a specific produce (e.g. 'price of tomato', 'price of onion', 'how much is rice'): "
+        "1. Search MARKETPLACE_INVENTORY for the exact or matching crop (handling singular/plural e.g. tomato matches Country Organic Tomatoes). "
+        "2. State the direct farm-gate price per kg, volume bulk slab discounts, the farmer's name, and location. "
+        "3. Highlight direct farmer savings: compare with typical local retail vendor prices (15-25% lower on KisanSetu). "
+        "4. Include an 'add_to_cart' suggested action with the product ID and product name. "
+        "5. If the requested produce is NOT in the marketplace inventory, state clearly that it is not currently listed by local farmers today, give indicative benchmark rates, and suggest available items. Never substitute an unrelated crop (e.g. NEVER show rice or grains if tomato or vegetables was asked). "
         "Keep answers concise, clear, and well-structured with bullet points where appropriate. "
         "Language instruction: Respond in the language specified in PREFERRED_LANGUAGE (e.g. English for 'en', Tamil for 'ta', Hindi for 'hi'), or in the language the user wrote in."
     )

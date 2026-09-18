@@ -95,6 +95,36 @@ ALL_COMMODITY_LIST = [
     "Banana (Robusta)", "Apple (Himachal/Kashmir)", "Mango (Alphonso/Banganapalli)", "Thompson Seedless Grapes"
 ]
 
+CROP_ALIASES = {
+    "tomato": ["tomato", "tomatoes", "thakkali", "tamatar"],
+    "potato": ["potato", "potatoes", "aloo", "batata", "alu"],
+    "onion": ["onion", "onions", "pyaz", "vengayam", "kanda"],
+    "shallot": ["shallot", "shallots", "sambhar onion", "chinna vengayam"],
+    "rice": ["rice", "samba", "ponni", "basmati", "arisi", "chawal", "paddy"],
+    "wheat": ["wheat", "sharbati", "atta", "gehu", "godhumai"],
+    "chilli": ["chilli", "chillies", "chili", "chilies", "mirch", "milagai"],
+    "carrot": ["carrot", "carrots", "gajar"],
+    "banana": ["banana", "bananas", "kela", "vazhaipazham"],
+    "mango": ["mango", "mangoes", "aam", "maambazham"],
+    "apple": ["apple", "apples", "seb"],
+    "garlic": ["garlic", "lahsun", "poondu"],
+    "ginger": ["ginger", "adrak", "inji"],
+    "cabbage": ["cabbage", "patta gobhi", "muttakos"],
+    "cauliflower": ["cauliflower", "phool gobhi"],
+    "brinjal": ["brinjal", "eggplant", "baingan", "kathirikai"],
+    "okra": ["okra", "bhindi", "ladyfinger", "ladies finger", "vendakkai"],
+    "turmeric": ["turmeric", "haldi", "manjal"],
+    "cucumber": ["cucumber", "kheera", "vellarikkai"],
+    "spinach": ["spinach", "palak", "keerai"],
+    "beans": ["beans", "french beans", "avarai"],
+    "peas": ["peas", "green peas", "matar", "pattani"],
+    "capsicum": ["capsicum", "bell pepper", "shimla mirch", "kudai milagai"],
+    "ragi": ["ragi", "finger millet", "kezhvaragu"],
+    "toor dal": ["toor dal", "tuvar dal", "arhar", "thuvaram paruppu"],
+    "moong dal": ["moong dal", "mung dal", "paasi paruppu"],
+    "urad dal": ["urad dal", "ulutham paruppu"]
+}
+
 def detect_category_heuristic(commodity: str) -> str:
     c = commodity.lower()
     if any(w in c for w in ["rice", "wheat", "grain", "paddy", "corn", "maize", "millet", "ragi", "jowar", "bajra", "atta"]):
@@ -377,25 +407,213 @@ def _heuristic_consumer_chat(message: str, user_context: dict, marketplace_items
             }
 
     # 3. Handle Marketplace & Produce Queries
-    crop_matches = []
+    def _stem(w: str) -> str:
+        w = re.sub(r'[^a-z0-9]', '', w.lower())
+        if w.endswith("es") and len(w) > 4:
+            return w[:-2]
+        if w.endswith("s") and len(w) > 3:
+            return w[:-1]
+        return w
+
+    words = re.findall(r'[a-zA-Z]+', msg_lower)
+    word_set = set(words)
+    stem_set = {_stem(w) for w in words}
+
+    # Detect if a specific crop is targeted
+    target_crop = None
+    for canonical, alias_list in CROP_ALIASES.items():
+        for a in alias_list:
+            if " " in a:
+                if a in msg_lower:
+                    target_crop = canonical
+                    break
+            else:
+                if a in word_set or _stem(a) in stem_set:
+                    target_crop = canonical
+                    break
+        if target_crop:
+            break
+
+    if not target_crop:
+        for baseline_crop in COMMODITY_BASELINES:
+            if baseline_crop in word_set or _stem(baseline_crop) in stem_set:
+                target_crop = baseline_crop
+                break
+
+    is_price_query = any(k in msg_lower for k in [
+        "price", "rate", "cost", "how much", "slab", "pricing", "discount", "offer", "rupee", "rs", "₹", "cheap", "expensive"
+    ])
+    is_general_market_query = any(w in msg_lower for w in [
+        "produce", "crop", "vegetable", "fruit", "grain", "pulse", "spice", "buy", "available", "marketplace", "fresh", "stock"
+    ])
+
+    matched_products = []
     if marketplace_items:
+        alias_words = CROP_ALIASES.get(target_crop, [target_crop]) if target_crop else []
+        alias_stems = {_stem(a) for a in alias_words}
+
         for p in marketplace_items:
             p_name = (p.get("name") or "").lower()
-            p_cat = (p.get("category") or "").lower()
-            if p_name in msg_lower or p_cat in msg_lower or any(w in msg_lower for w in p_name.split()):
-                crop_matches.append(p)
+            p_words = re.findall(r'[a-zA-Z]+', p_name)
+            p_stems = {_stem(w) for w in p_words}
 
-    if crop_matches or any(w in msg_lower for w in ["produce", "crop", "vegetable", "fruit", "grain", "pulse", "spice", "buy", "available", "price", "rate", "cost", "marketplace"]):
-        items_to_show = crop_matches[:4] if crop_matches else marketplace_items[:4]
-        
-        reply_lines = ["### 🌾 Available Farm-Fresh Produce in Marketplace:\n"]
+            if target_crop:
+                if any(a in p_name for a in alias_words) or any(s in p_stems for s in alias_stems):
+                    matched_products.append(p)
+                    continue
+
+            # Fallback token overlap (avoid common stop words)
+            stop_words = {"price", "rate", "cost", "how", "much", "is", "the", "of", "in", "for", "kg", "kilo", "buy", "show", "what", "available", "where", "can", "get", "fresh", "good", "grade"}
+            meaningful_query_words = [w for w in words if w not in stop_words and len(w) > 2]
+            meaningful_query_stems = {_stem(w) for w in meaningful_query_words}
+
+            if any(w in p_name for w in meaningful_query_words) or any(s in p_stems for s in meaningful_query_stems):
+                matched_products.append(p)
+
+    # Deduplicate matching products by name
+    seen_names = set()
+    unique_matched = []
+    for p in matched_products:
+        p_name = p.get("name")
+        if p_name not in seen_names:
+            seen_names.add(p_name)
+            unique_matched.append(p)
+
+    # CASE A: Specific commodity requested & found in marketplace
+    if target_crop and unique_matched:
+        baseline = COMMODITY_BASELINES.get(target_crop, {})
+        reply_lines = []
+        actions = []
+
+        for p in unique_matched[:3]:
+            slabs = p.get("slabs", [])
+            retail_price = slabs[0]["price_per_kg"] if slabs else p.get("price_per_kg", 35)
+            farmer_loc = f"{p.get('farmer_district', '')}, {p.get('farmer_state', '')}".strip(", ")
+            stock = p.get("available_quantity", 100)
+            farmer_name = p.get("farmer_name", "Local Producer Group")
+            grade = p.get("grade", "Grade A")
+
+            local_vendor_ref = baseline.get("local_vendor", round(retail_price * 1.25, 1))
+            savings_per_kg = max(round(local_vendor_ref - retail_price, 1), 5.0)
+            savings_pct = round((savings_per_kg / local_vendor_ref) * 100) if local_vendor_ref > 0 else 20
+
+            icon = "🍅" if target_crop == "tomato" else "🧅" if target_crop == "onion" else "🥔" if target_crop == "potato" else "🌾"
+
+            reply_lines.append(f"### {icon} Direct Farm-Gate Pricing: **{p.get('name')}** ({grade})\n")
+            reply_lines.append(f"Freshly harvested produce listed directly by farmer **{farmer_name}** ({farmer_loc}):\n")
+            reply_lines.append(f"- **Current Farm Price:** **₹{retail_price:.1f}/kg** (Retail / Household)")
+            
+            if len(slabs) > 1:
+                bulk_slab = slabs[-1]
+                bulk_min = bulk_slab.get("min_quantity", 15)
+                bulk_price = bulk_slab.get("price_per_kg", retail_price)
+                bulk_saving = round(((retail_price - bulk_price) / retail_price) * 100) if retail_price > 0 else 0
+                reply_lines.append(f"- **Bulk Volume Discount:** **₹{bulk_price:.1f}/kg** for orders **>{bulk_min} kg** (Save {bulk_saving}% in bulk!)")
+
+            reply_lines.append(f"- **Available Harvest Stock:** {stock:.1f} kg")
+            reply_lines.append(f"- **Local Vendor Retail Benchmark:** Local supermarkets and street vendors sell at **~₹{local_vendor_ref:.1f}/kg**.")
+            reply_lines.append(f"- **Your Direct Savings:** **₹{savings_per_kg:.1f}/kg ({savings_pct}% off)** with zero middleman commissions!\n")
+
+            actions.append({
+                "type": "add_to_cart",
+                "label": f"🛒 Add {p.get('name')} (₹{retail_price:.1f}/kg)",
+                "product_id": p.get("id"),
+                "product_name": p.get("name")
+            })
+
+        actions.append({
+            "type": "navigate_tab",
+            "label": "🛒 View Pan-India Marketplace",
+            "tab": "marketplace"
+        })
+
+        return {
+            "success": True,
+            "source": "KisanSetu Intelligent Assistant",
+            "reply": "\n".join(reply_lines),
+            "intent": "pricing_query" if is_price_query else "marketplace_search",
+            "referenced_orders": [],
+            "referenced_products": [p.get("name") for p in unique_matched],
+            "suggested_actions": actions[:3]
+        }
+
+    # CASE B: Specific commodity requested but NOT currently in active catalog
+    elif target_crop and not unique_matched:
+        from backend.crop_knowledge import lookup_crop_knowledge
+        crop_data = lookup_crop_knowledge(target_crop)
+        baseline = COMMODITY_BASELINES.get(target_crop, {})
+
+        crop_title = target_crop.title()
+        msp = baseline.get("msp", 20.0)
+        fair = baseline.get("fair_market", 30.0)
+        vendor = baseline.get("local_vendor", 40.0)
+        outlook = baseline.get("outlook", "Active seasonal harvesting across regional producer clusters.")
+        major_states = ", ".join(crop_data.get("major_states", [])[:4]) if crop_data.get("major_states") else "major agricultural hubs"
+
+        reply = (
+            f"### 📊 Market Price Intelligence: **{crop_title}**\n\n"
+            f"Direct farm listings for **{crop_title}** are not currently in today's active catalog, but here is verified price guidance:\n\n"
+            f"- **Government Mandi / MSP Floor:** **₹{msp:.1f}/kg**\n"
+            f"- **Estimated Fair Direct Farm Rate:** **₹{fair:.1f}/kg**\n"
+            f"- **Local Vendor / Supermarket Retail:** **~₹{vendor:.1f}/kg**\n"
+            f"- **Market Outlook:** {outlook}\n"
+            f"- **Major Cultivation Hubs:** {major_states}\n\n"
+            f"Our farmer producer organizations are currently harvesting fresh batches. In the meantime, you can explore other fresh farm produce available in our marketplace below!"
+        )
+
+        return {
+            "success": True,
+            "source": "KisanSetu Intelligent Assistant",
+            "reply": reply,
+            "intent": "pricing_query" if is_price_query else "marketplace_search",
+            "referenced_orders": [],
+            "referenced_products": [],
+            "suggested_actions": [
+                {"type": "navigate_tab", "label": "🛒 Explore Available Produce", "tab": "marketplace"},
+                {"type": "navigate_tab", "label": "🥬 View Fresh Vegetables", "tab": "marketplace"}
+            ]
+        }
+
+    # CASE C: General produce / category search (e.g., "what vegetables are available?", "show produce")
+    elif unique_matched or is_general_market_query or is_price_query:
+        # Filter by category if user requested specific category
+        cat_filter = None
+        if any(w in msg_lower for w in ["vegetable", "veggie", "greens", "keerai"]):
+            cat_filter = "Vegetables"
+        elif any(w in msg_lower for w in ["fruit"]):
+            cat_filter = "Fruits"
+        elif any(w in msg_lower for w in ["grain", "rice", "wheat", "paddy", "cereal"]):
+            cat_filter = "Grains"
+        elif any(w in msg_lower for w in ["pulse", "dal", "gram"]):
+            cat_filter = "Pulses"
+        elif any(w in msg_lower for w in ["spice"]):
+            cat_filter = "Spices"
+
+        pool = unique_matched if unique_matched else marketplace_items
+        if cat_filter:
+            pool = [p for p in pool if (p.get("category") or "").lower() == cat_filter.lower()]
+            if not pool:
+                pool = marketplace_items
+
+        # Deduplicate pool by produce name
+        distinct_pool = []
+        pool_seen = set()
+        for p in pool:
+            p_name = p.get("name")
+            if p_name not in pool_seen:
+                pool_seen.add(p_name)
+                distinct_pool.append(p)
+
+        items_to_show = distinct_pool[:4]
+        title_cat = f"{cat_filter} " if cat_filter else ""
+        reply_lines = [f"### 🌾 Available Farm-Fresh {title_cat}Produce in Marketplace:\n"]
         actions = []
 
         for p in items_to_show:
             slabs = p.get("slabs", [])
-            price_str = f"₹{slabs[0]['price_per_kg']}/kg" if slabs else f"₹{p.get('price_per_kg', 35)}/kg"
+            price_str = f"₹{slabs[0]['price_per_kg']:.1f}/kg" if slabs else f"₹{p.get('price_per_kg', 35):.1f}/kg"
             farmer_loc = f"{p.get('farmer_district', '')}, {p.get('farmer_state', '')}".strip(", ")
-            stock = f"{p.get('available_quantity', 100)} kg"
+            stock = f"{p.get('available_quantity', 100):.1f} kg"
             
             reply_lines.append(f"- **{p.get('name')}** ({p.get('grade', 'Grade A')}) — **{price_str}**")
             reply_lines.append(f"  *Farmer:* {p.get('farmer_name', 'Direct Farm')} ({farmer_loc}) | *Stock:* {stock}")

@@ -98,5 +98,55 @@ class ConsumerChatbotTestCase(unittest.TestCase):
         self.assertIn("Tomatoes", res_market["reply"])
         print("\n[TEST 4: Heuristic Offline Fallback] Verified 100% resilient fallback!")
 
+    def test_price_of_tomato_query(self):
+        """Test asking 'price of tomato' via the API endpoint."""
+        payload = {
+            "message": "price of tomato",
+            "language": "en"
+        }
+        res = self.client.post("/api/ai/consumer-chat", json=payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertTrue(data.get("success"))
+        reply_lower = data.get("reply", "").lower()
+        self.assertIn("tomato", reply_lower)
+        self.assertNotIn("kallur nilam samba rice", reply_lower)
+        print("\n[TEST 5: Price of Tomato API] Accurately answered tomato pricing without showing rice!")
+
+    def test_price_of_tomato_heuristic_fallback(self):
+        """Test asking 'price of tomato' directly against the heuristic fallback."""
+        from backend.ai_engine import _heuristic_consumer_chat
+        mock_items = [
+            {
+                "id": 61,
+                "name": "Kallur Nilam Samba Rice",
+                "category": "Grains",
+                "grade": "Grade A",
+                "farmer_name": "Murugan",
+                "available_quantity": 500,
+                "slabs": [{"min_quantity": 1, "price_per_kg": 60.0}]
+            },
+            {
+                "id": 59,
+                "name": "Country Organic Tomatoes",
+                "category": "Vegetables",
+                "grade": "Grade A",
+                "farmer_name": "Farmer Velu",
+                "farmer_district": "Salem",
+                "farmer_state": "Tamil Nadu",
+                "available_quantity": 150.0,
+                "slabs": [{"min_quantity": 1, "price_per_kg": 40.0}, {"min_quantity": 15, "price_per_kg": 25.0}]
+            }
+        ]
+        res = _heuristic_consumer_chat("price of tomato", {"name": "Arjun"}, mock_items, [])
+        self.assertTrue(res["success"])
+        reply = res["reply"]
+        self.assertIn("Country Organic Tomatoes", reply)
+        self.assertIn("₹40.0/kg", reply)
+        self.assertNotIn("Kallur Nilam Samba Rice", reply)
+        self.assertTrue(any(a["product_name"] == "Country Organic Tomatoes" for a in res["suggested_actions"]))
+        print("\n[TEST 6: Price of Tomato Heuristic] Matched Country Organic Tomatoes with exact slabs and actions!")
+
+
 if __name__ == "__main__":
     unittest.main()
