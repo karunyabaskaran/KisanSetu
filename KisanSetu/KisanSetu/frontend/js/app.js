@@ -480,16 +480,56 @@ window.showLoginModal = function(role = "farmer") {
 
     const switchTextEl = document.getElementById("loginModalSwitchText");
     const adminNoticeEl = document.getElementById("loginModalAdminNotice");
+    const methodSwitcher = document.getElementById("loginMethodSwitcherWrap");
     if (role === "admin") {
         if (switchTextEl) switchTextEl.style.display = "none";
         if (adminNoticeEl) adminNoticeEl.style.display = "block";
+        if (methodSwitcher) methodSwitcher.style.display = "none";
+        switchLoginMethod("password");
     } else {
         if (switchTextEl) switchTextEl.style.display = "block";
         if (adminNoticeEl) adminNoticeEl.style.display = "none";
+        if (methodSwitcher) methodSwitcher.style.display = "block";
+        switchLoginMethod("password");
+    }
+
+    // Reset login OTP state
+    const otpInput = document.getElementById("login_otp_code");
+    if (otpInput) otpInput.value = "";
+    const hintEl = document.getElementById("loginOtpStatusHint");
+    if (hintEl) {
+        hintEl.textContent = "Enter your registered 10-digit mobile and click 'Get OTP' to receive your verification code.";
+        hintEl.className = "small text-muted mt-2";
     }
 
     const modal = document.getElementById("loginModal");
     if (modal) modal.classList.add("active");
+};
+
+window.switchLoginMethod = function(mode) {
+    const isOtp = mode === "otp";
+    const passTab = document.getElementById("tabLoginPasswordBtn");
+    const otpTab = document.getElementById("tabLoginOtpBtn");
+    const passForm = document.getElementById("loginForm");
+    const otpForm = document.getElementById("loginOtpForm");
+
+    if (passTab) passTab.classList.toggle("active", !isOtp);
+    if (otpTab) otpTab.classList.toggle("active", isOtp);
+    if (passForm) passForm.style.display = isOtp ? "none" : "block";
+    if (otpForm) otpForm.style.display = isOtp ? "block" : "none";
+
+    // Auto-sync phone number between tabs
+    if (isOtp) {
+        const passMob = document.getElementById("login_mobile");
+        const otpMob = document.getElementById("login_otp_mobile");
+        if (passMob && otpMob && passMob.value.trim()) otpMob.value = passMob.value.trim();
+        if (otpMob) otpMob.focus();
+    } else {
+        const passMob = document.getElementById("login_mobile");
+        const otpMob = document.getElementById("login_otp_mobile");
+        if (passMob && otpMob && otpMob.value.trim()) passMob.value = otpMob.value.trim();
+        if (passMob) passMob.focus();
+    }
 };
 
 window.closeLoginModal = function() {
@@ -714,12 +754,13 @@ function initEventListeners() {
 
             try {
                 const res = await api.sendOtp(mobile, role);
-                showToast(res.message || "OTP dispatched via Twilio SMS!", "success");
+                const otpCode = res.test_otp || res.otp || "";
+                showToast(res.message || "OTP generated successfully!", "success");
 
-                // Strictly clear the OTP input so user must manually type the code received on phone
+                // Auto-fill into registration OTP field
                 const regOtpInput = document.getElementById("reg_otp");
-                if (regOtpInput) {
-                    regOtpInput.value = "";
+                if (regOtpInput && otpCode) {
+                    regOtpInput.value = otpCode;
                     regOtpInput.focus();
                 }
 
@@ -730,8 +771,8 @@ function initEventListeners() {
 
                 const hintEl = document.getElementById("otpStatusHint");
                 if (hintEl) {
-                    hintEl.textContent = `SMS code sent to +91-${mobile} via Twilio. Enter the 6-digit code and click Verify OTP.`;
-                    hintEl.className = "text-primary small";
+                    hintEl.innerHTML = `🔑 Verification OTP: <strong style="color: #15803d; font-size: 1.15rem; letter-spacing: 2px;">${otpCode}</strong> <button type="button" class="btn btn-xs btn-outline-success ml-2" onclick="document.getElementById('reg_otp').value='${otpCode}'">Auto-fill</button><div class="mt-1 small text-muted">SMS sent to +91-${mobile}. Click 'Verify OTP' to complete verification.</div>`;
+                    hintEl.className = "text-success small";
                 }
 
                 // 30s Cooldown Countdown
@@ -752,6 +793,106 @@ function initEventListeners() {
                 showToast(err.message || "Failed to send SMS OTP", "error");
                 btnSendOtp.disabled = false;
                 btnSendOtp.textContent = "Get OTP";
+            }
+        });
+    }
+
+    // OTP Send (Get OTP) for Login Modal
+    const btnLoginSendOtp = document.getElementById("btnLoginSendOtp");
+    if (btnLoginSendOtp) {
+        btnLoginSendOtp.addEventListener("click", async () => {
+            const mobileInput = document.getElementById("login_otp_mobile");
+            const mobile = mobileInput ? mobileInput.value.trim() : "";
+            const role = document.getElementById("login_role_select").value || "farmer";
+
+            if (!mobile || mobile.length < 10) {
+                showToast("Please enter your registered 10-digit mobile number.", "error");
+                if (mobileInput) mobileInput.focus();
+                return;
+            }
+
+            btnLoginSendOtp.disabled = true;
+            btnLoginSendOtp.textContent = "Sending...";
+
+            try {
+                const res = await api.sendOtp(mobile, role);
+                const otpCode = res.test_otp || res.otp || "";
+                showToast(res.message || "OTP generated successfully!", "success");
+
+                // Auto-fill OTP field for instant friction-free sign in
+                const codeInput = document.getElementById("login_otp_code");
+                if (codeInput && otpCode) {
+                    codeInput.value = otpCode;
+                    codeInput.focus();
+                }
+
+                const hintEl = document.getElementById("loginOtpStatusHint");
+                if (hintEl) {
+                    hintEl.innerHTML = `🔑 Login OTP: <strong style="color: #15803d; font-size: 1.15rem; letter-spacing: 2px;">${otpCode}</strong> <button type="button" class="btn btn-xs btn-outline-success ml-2" onclick="document.getElementById('login_otp_code').value='${otpCode}'">Auto-fill</button><div class="mt-1 small text-muted">SMS dispatched to +91-${mobile}. Click 'Verify & Sign In' below.</div>`;
+                    hintEl.className = "small text-success";
+                }
+
+                // 30s Cooldown Countdown
+                let countdown = 30;
+                btnLoginSendOtp.textContent = `Resend (${countdown}s)`;
+                const timer = setInterval(() => {
+                    countdown -= 1;
+                    if (countdown <= 0) {
+                        clearInterval(timer);
+                        btnLoginSendOtp.disabled = false;
+                        btnLoginSendOtp.textContent = "Get OTP";
+                    } else {
+                        btnLoginSendOtp.textContent = `Resend (${countdown}s)`;
+                    }
+                }, 1000);
+            } catch (err) {
+                showToast(err.message || "Failed to send OTP", "error");
+                btnLoginSendOtp.disabled = false;
+                btnLoginSendOtp.textContent = "Get OTP";
+            }
+        });
+    }
+
+    // Submit OTP Login Form
+    const loginOtpForm = document.getElementById("loginOtpForm");
+    if (loginOtpForm) {
+        loginOtpForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const mobileInput = document.getElementById("login_otp_mobile");
+            const mobile = mobileInput ? mobileInput.value.trim() : "";
+            const otpInput = document.getElementById("login_otp_code");
+            const otp = otpInput ? otpInput.value.trim() : "";
+            const role = document.getElementById("login_role_select").value || "farmer";
+
+            if (!mobile || mobile.length < 10) {
+                showToast("Please enter your registered 10-digit mobile number.", "error");
+                if (mobileInput) mobileInput.focus();
+                return;
+            }
+            if (!otp || otp.length < 6) {
+                showToast("Please enter the 6-digit OTP code received.", "error");
+                if (otpInput) otpInput.focus();
+                return;
+            }
+
+            const btnSubmit = document.getElementById("btnSubmitOtpLogin");
+            if (btnSubmit) {
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = "Signing In...";
+            }
+
+            try {
+                const res = await api.loginWithOtp(mobile, otp, role);
+                showToast(res.message || "Signed in successfully!", "success");
+                closeLoginModal();
+                switchPortal(res.user.role);
+            } catch (err) {
+                showToast(err.message || "OTP verification failed", "error");
+            } finally {
+                if (btnSubmit) {
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = "<span>Verify & Sign In</span>";
+                }
             }
         });
     }

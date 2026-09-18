@@ -32,10 +32,11 @@ def send_otp():
     role_label = "Farmer" if role == "farmer" else ("Consumer" if role == "buyer" else "")
     disp_role = f" ({role_label})" if role_label else ""
 
-    # Note: test_otp is NOT returned to ensure user manually enters the OTP received via Twilio
     return jsonify({
         "success": True,
-        "message": f"{disp_role} OTP successfully dispatched to +91-{mobile}. Please enter the 6-digit code received.".strip(),
+        "otp": otp,
+        "test_otp": otp,
+        "message": f"{disp_role} OTP is: {otp} (Dispatched for +91-{mobile}).".strip(),
         "sms_provider": sms_res.get("provider", "console")
     })
 
@@ -180,6 +181,72 @@ def login():
                 "status": "rejected",
                 "message": f"Your registration application was rejected by the Administrator. Reason: {reason}."
             }), 403
+
+    return jsonify({
+        "success": True,
+        "message": f"Welcome back, {user_dict['name']}!",
+        "user": user_dict
+    })
+
+@auth_bp.route("/login-otp", methods=["POST"])
+def login_otp():
+    """Authenticates a user via verified OTP code."""
+    data = request.get_json() or {}
+    mobile = str(data.get("mobile", "")).strip()
+    entered_otp = str(data.get("otp", "")).strip()
+    role = str(data.get("role", "")).strip().lower()
+
+    if not mobile or not entered_otp:
+        return jsonify({"success": False, "message": "Mobile number and OTP code are required"}), 400
+
+    stored_otp = OTP_STORE.get(mobile)
+    is_verified = OTP_STORE.get(f"verified_{mobile}") or (stored_otp and stored_otp == entered_otp)
+    if not is_verified:
+        return jsonify({"success": False, "message": "Invalid or expired OTP. Please click 'Get OTP' to receive a new code."}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    query = "SELECT * FROM users WHERE mobile = ?"
+    params = [mobile]
+    if role:
+        query += " AND role = ?"
+        params.append(role)
+
+    cursor.execute(query, params)
+    user = cursor.fetchone()
+    conn.close()
+
+    if not user:
+        role_name = role.capitalize() if role else "User"
+        return jsonify({
+            "success": False,
+            "message": f"No {role_name} account found with mobile {mobile}. Please click 'Register here' to create your account."
+        }), 404
+
+    user_dict = dict(user)
+    if "password" in user_dict:
+        del user_dict["password"]
+
+    user_status = user_dict.get("status") or "approved"
+    if user_dict.get("role") == "farmer":
+        if user_status == "pending":
+            return jsonify({
+                "success": False,
+                "status": "pending",
+                "message": "Your farmer registration is currently pending Ministry approval. Please wait for an administrator to review and approve your application."
+            }), 403
+        elif user_status == "rejected":
+            reason = user_dict.get("rejection_reason") or "Application criteria not met"
+            return jsonify({
+                "success": False,
+                "status": "rejected",
+                "message": f"Your registration application was rejected by the Administrator. Reason: {reason}."
+            }), 403
+
+    # Clear OTP state after successful login
+    OTP_STORE.pop(mobile, None)
+    OTP_STORE.pop(f"verified_{mobile}", None)
 
     return jsonify({
         "success": True,

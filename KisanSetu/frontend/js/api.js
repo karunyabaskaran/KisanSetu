@@ -109,6 +109,17 @@ const api = {
         return res;
     },
 
+    async loginWithOtp(mobile, otp, role) {
+        const res = await this.request("/api/auth/login-otp", {
+            method: "POST",
+            body: JSON.stringify({ mobile, otp, role })
+        });
+        if (res.success && res.user) {
+            this.setUser(res.user);
+        }
+        return res;
+    },
+
     async getProfile(userId) {
         return this.request(`/api/auth/profile?user_id=${userId}`);
     },
