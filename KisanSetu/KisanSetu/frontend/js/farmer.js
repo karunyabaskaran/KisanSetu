@@ -345,16 +345,26 @@ const FarmerController = {
         const localVendor = res.local_vendor_price || (res.price_guidance && res.price_guidance.local_vendor_price) || (parseFloat(String(retail).replace(/[^0-9.]/g, '')) * 1.25).toFixed(1);
         const savings = res.savings_percentage || (res.price_guidance && res.price_guidance.savings_percentage) || 20;
         const region = res.region || "Your Region";
-        const comparisonText = res.local_vendor_comparison || `Local retail street vendors charge ~₹${localVendor}/kg in ${region}. Direct farm price ${retail} is ${savings}% cheaper for buyers while giving you 100% farm-gate profit.`;
+        const comparisonText = res.state_cultivation_insight || res.local_vendor_comparison || `Local retail street vendors charge ~₹${localVendor}/kg in ${region}. Direct farm price ${retail} is ${savings}% cheaper for buyers while giving you 100% farm-gate profit.`;
+
+        const hubBadge = res.is_major_producing_hub 
+            ? `<span class="badge" style="background: #047857; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px;">🌾 Leading Cultivation Hub (${res.matched_state || region})</span>`
+            : '';
+
+        const refRangeTag = res.indicative_price_range 
+            ? `<span style="font-size: 10px; color: #475569; background: #e2e8f0; padding: 2px 6px; border-radius: 6px; margin-left: 6px;">Sept 2026 All-India Avg: ₹${res.indicative_price_range}/kg</span>`
+            : '';
 
         banner.style.display = "block";
         banner.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 250px;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 5px; flex-wrap: wrap;">
                         <span style="font-size: 16px;">✨</span>
                         <strong style="color: #065f46; font-size: 13px;">Gemini Fair Price Applied for ${crop}</strong>
                         <span class="badge" style="background: #10b981; color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px;">${res.source || 'Gemini AI'}</span>
+                        ${hubBadge}
+                        ${refRangeTag}
                     </div>
                     <div style="font-size: 12px; color: #047857; margin-bottom: 6px; line-height: 1.4;">
                         ${comparisonText}

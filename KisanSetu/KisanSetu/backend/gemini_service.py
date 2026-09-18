@@ -180,15 +180,33 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, In
     """
     Queries Google Gemini AI to analyze market trends and calculate fair, direct farm-gate pricing
     for the selected crop in the farmer's specific location.
+    Grounded with state-wise cultivation data & September 2026 price benchmarks from india-crops-statewise.md.
     Crucially: Estimates local retail vendor prices and prices farm-gate produce 15-25% lower than local vendors,
     giving consumers huge savings while providing farmers higher margins by eliminating intermediaries.
     """
     if not month:
         month = datetime.datetime.now().month
 
+    from backend.crop_knowledge import lookup_crop_knowledge
+    crop_info = lookup_crop_knowledge(commodity, region)
+
+    grounding_context = ""
+    if crop_info.get("found"):
+        grounding_context = f"""
+    AUTHORITATIVE STATE-WISE CULTIVATION BENCHMARK (INDIA CROPS GUIDE, SEPT 2026):
+    - Canonical Crop Name: {crop_info['canonical_name']}
+    - Crop Category: {crop_info['category']}
+    - Major Cultivation States: {', '.join(crop_info['major_states'])}
+    - Farmer Region ({region}) Cultivation Status: {'LEADING PRODUCING HUB' if crop_info['is_major_producer'] else 'CONSUMING / TRANSIT REGION'}
+    - Indicative Retail Price Range: {crop_info['indicative_price_str']} INR/kg
+    - State Cultivation Dynamics: {crop_info['state_insight']}
+    Ground your local vendor price estimate and farm-gate discount in this official benchmark.
+    """
+
     system_instruction = (
         "You are KisanSetu's AI Agricultural Market, Pricing & Mandi Intelligence Engine. "
         "Your mission is to establish fair, direct-from-farmer pricing that eliminates extortionate middleman margins. "
+        "You possess deep knowledge of state-wise Indian agricultural geography, leading production hubs, and APMC mandi flows. "
         "Estimate the prevailing local street vendor / retail market price for the produce in the farmer's specific location, "
         "and calculate a recommended direct farm-gate retail price that is COMPARATIVELY LESS (15% to 25% lower) than local street vendors, "
         "so consumers save money while the farmer receives a substantially higher, more profitable net realization than distress mandi sales."
@@ -196,19 +214,19 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, In
 
     prompt = f"""
     Analyze agricultural commodity '{commodity}' produced in farmer's location: '{region}' for month {month} (1-12).
-    
+    {grounding_context}
     Tasks:
-    1. Estimate the prevailing local retail street vendor / local market price in INR per kg for '{commodity}' in '{region}' ('local_vendor_price').
+    1. Estimate the prevailing local retail street vendor / local market price in INR per kg for '{commodity}' in '{region}' ('local_vendor_price'), adhering closely to the provided state-wise benchmark.
     2. Calculate a direct farm-gate retail price ('suggested_retail') that is 15% to 25% CHEAPER than the local vendor price (eliminating intermediary markups).
     3. Calculate a bulk wholesale price ('suggested_bulk') for orders >50kg, typically 15-20% lower than suggested_retail.
     4. Provide the government MSP or mandi benchmark floor price ('msp') in INR/kg.
     5. Calculate savings percentage for consumers buying directly from farmer ('savings_percentage', integer, e.g. 20).
-    6. Provide a concise comparison statement ('local_vendor_comparison') explaining the savings vs local vendors.
+    6. Provide a concise comparison statement ('local_vendor_comparison') explaining the savings vs local vendors and highlighting the farmer's state cultivation advantage.
     7. Identify any recent or upcoming regional festivals in '{region}' impacting demand for '{commodity}'.
 
     Return a valid JSON object with exact keys:
-    - "commodity": "{commodity}"
-    - "category": (one of: "Vegetables", "Fruits", "Grains", "Pulses", "Spices")
+    - "commodity": "{crop_info['canonical_name'] if crop_info.get('found') else commodity}"
+    - "category": (one of: "Vegetables", "Fruits", "Grains", "Pulses", "Spices", "Herbs")
     - "local_vendor_price": (number, prevailing street vendor/market price in INR/kg, e.g. 45.0)
     - "suggested_retail": (number, direct farm price in INR/kg, strictly 15-25% lower than local_vendor_price, e.g. 35.0)
     - "suggested_bulk": (number, bulk wholesale price in INR/kg for >50kg, e.g. 29.0)
@@ -222,7 +240,7 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, In
     - "festival_name": (string, primary relevant festival/season in {region} or 'Regional Harvest Season')
     - "festival_surge_percentage": (string, e.g. '+15% Seasonal Uptick')
     - "festival_notes": (string, 1-2 sentences on consumption trends for {commodity} in {region})
-    - "market_insights": (string, 1-2 sentences summarizing mandi arrival volumes and fair pricing protection)
+    - "market_insights": (string, 1-2 sentences summarizing mandi arrival volumes, state cultivation, and fair pricing protection)
     """
 
     try:
@@ -280,9 +298,14 @@ def get_gemini_crop_price_forecast(commodity: str, region: str = "Tamil Nadu, In
         return {
             "success": True,
             "source": "Google Gemini AI",
-            "commodity": commodity,
+            "commodity": crop_info.get("canonical_name") if crop_info.get("found") else commodity,
             "category": cat,
             "region": region,
+            "is_major_producing_hub": crop_info.get("is_major_producer", False),
+            "matched_state": crop_info.get("matched_state"),
+            "major_growing_states": crop_info.get("major_states", []),
+            "indicative_price_range": crop_info.get("indicative_price_str", ""),
+            "state_cultivation_insight": crop_info.get("state_insight", ""),
             "forecast_period": f"Current Market & Festivals ({datetime.datetime.now().strftime('%B %Y')})",
             "demand_index": round(demand_idx, 1),
             "demand_rating": data.get("demand_rating", "High Demand" if demand_idx >= 75 else "Moderate Demand"),

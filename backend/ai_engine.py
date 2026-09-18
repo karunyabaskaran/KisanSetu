@@ -141,43 +141,62 @@ def get_commodity_baseline(commodity: str, region: str = "Tamil Nadu, India") ->
 def _heuristic_forecast(commodity: str, month: int, region: str = "Tamil Nadu, India"):
     """
     Intelligent ML/heuristic fallback when Gemini is offline.
+    Uses authoritative state-wise cultivation data from india-crops-statewise.md.
     Calculates direct farm-gate prices that are 15-25% lower than local street vendors.
     """
     features = np.array([[month, 6.5, 5.0]])
     predicted_demand_index = float(DEMAND_MODEL.predict(features)[0])
 
-    baseline = get_commodity_baseline(commodity, region=region)
-    raw_retail = round(baseline["fair_market"] * (1.0 + (predicted_demand_index - 70) / 200), 1)
-    
-    # Establish local vendor price and ensure farm-gate price is 15-25% cheaper
-    local_vendor = round(baseline.get("local_vendor", raw_retail * 1.25), 1)
-    if raw_retail >= local_vendor or (local_vendor - raw_retail) / local_vendor < 0.12:
-        suggested_retail = round(local_vendor * 0.80, 1)
+    from backend.crop_knowledge import lookup_crop_knowledge, get_all_cultivated_commodities
+    crop_info = lookup_crop_knowledge(commodity, region)
+
+    if crop_info.get("found") and crop_info.get("local_vendor_reference"):
+        local_vendor = crop_info["local_vendor_reference"]
+        suggested_retail = crop_info["suggested_retail"]
+        suggested_bulk = crop_info["suggested_bulk"]
+        cat = crop_info["category"]
+        comparison = crop_info["state_insight"]
+        msp = round(suggested_retail * 0.65, 1)
+        canonical_name = crop_info["canonical_name"]
     else:
-        suggested_retail = raw_retail
+        baseline = get_commodity_baseline(commodity, region=region)
+        raw_retail = round(baseline["fair_market"] * (1.0 + (predicted_demand_index - 70) / 200), 1)
+        local_vendor = round(baseline.get("local_vendor", raw_retail * 1.25), 1)
+        if raw_retail >= local_vendor or (local_vendor - raw_retail) / local_vendor < 0.12:
+            suggested_retail = round(local_vendor * 0.80, 1)
+        else:
+            suggested_retail = raw_retail
+        suggested_bulk = round(suggested_retail * 0.82, 1)
+        cat = detect_category_heuristic(commodity)
+        msp = baseline["msp"]
+        canonical_name = commodity
+        comparison = f"Local retail vendors charge ~₹{local_vendor}/kg in {region}. Direct farm price ₹{suggested_retail}/kg is 20% cheaper for buyers while eliminating middleman margins."
 
     savings_pct = int(round(((local_vendor - suggested_retail) / local_vendor) * 100))
     if savings_pct < 10:
         savings_pct = 20
 
-    suggested_bulk = round(suggested_retail * 0.82, 1)
     mid_price = round((suggested_retail + suggested_bulk) / 2.0, 1)
-    cat = detect_category_heuristic(commodity)
-    comparison = f"Local retail vendors charge ~₹{local_vendor}/kg in {region}. Direct farm price ₹{suggested_retail}/kg is {savings_pct}% cheaper for buyers while eliminating middleman margins."
+    all_crops = get_all_cultivated_commodities() or ALL_COMMODITY_LIST
 
     return {
         "success": True,
         "source": "KisanSetu ML Engine (Fallback)",
-        "commodity": commodity,
+        "commodity": canonical_name,
         "category": cat,
         "region": region,
+        "is_major_producing_hub": crop_info.get("is_major_producer", False),
+        "matched_state": crop_info.get("matched_state"),
+        "major_growing_states": crop_info.get("major_states", []),
+        "indicative_price_range": crop_info.get("indicative_price_str", ""),
+        "state_cultivation_insight": crop_info.get("state_insight", comparison),
         "forecast_period": f"Month {month} Agricultural Outlook",
         "demand_index": round(predicted_demand_index, 1),
         "demand_rating": "High Demand" if predicted_demand_index > 75 else "Moderate Demand",
         "local_vendor_price": local_vendor,
         "savings_percentage": savings_pct,
         "local_vendor_comparison": comparison,
-        "market_insights": baseline.get("outlook", comparison),
+        "market_insights": crop_info.get("state_insight", comparison),
         "festival_impact": {
             "festival_name": "Regional Harvest Season",
             "surge_percentage": "+12% Seasonal Uptick",
@@ -187,7 +206,7 @@ def _heuristic_forecast(commodity: str, month: int, region: str = "Tamil Nadu, I
         "price_guidance": {
             "local_vendor_price": local_vendor,
             "savings_percentage": savings_pct,
-            "government_msp": baseline["msp"],
+            "government_msp": msp,
             "recommended_retail_slab": f"₹{suggested_retail} / kg",
             "recommended_bulk_slab": f"₹{suggested_bulk} / kg (>50 kg)",
             "trend": f"{savings_pct}% Cheaper than Local Vendors"
@@ -197,7 +216,7 @@ def _heuristic_forecast(commodity: str, month: int, region: str = "Tamil Nadu, I
             {"min_quantity": 10, "max_quantity": 50, "price_per_kg": mid_price},
             {"min_quantity": 50, "max_quantity": None, "price_per_kg": suggested_bulk}
         ],
-        "all_commodities": ALL_COMMODITY_LIST
+        "all_commodities": all_crops
     }
 
 @ai_bp.route("/forecast", methods=["GET"])
